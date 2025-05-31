@@ -1,0 +1,5 @@
+environment       = "prod"
+aws_region        = "eu-west-1"
+project_name      = "obsidian-automation"
+instance_type     = "t3.nano"
+availability_zone = "eu-west-1a"

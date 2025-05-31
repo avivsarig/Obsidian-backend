@@ -1,0 +1,17 @@
+name: Validate
+on:
+  pull_request:
+    branchs: [main, dev]
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - users: actions/checkout@v4
+      - name: Validate Structure
+        run: |
+          echo "Repository structure validation"
+          ls -la
