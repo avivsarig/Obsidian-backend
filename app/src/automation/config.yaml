@@ -1,0 +1,7 @@
+# Folders
+tasks: "Tasks"
+completed_tasks: "Tasks/Completed"
+archive: "Knowledge Archive"
+
+# Retention
+retent_for_days: 14
