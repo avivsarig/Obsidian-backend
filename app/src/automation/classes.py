@@ -3,9 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from helper import TimeParserMixin
-
 import frontmatter
+from helper import TimeParserMixin
 
 StrODate = str | datetime | None
 
@@ -17,26 +16,27 @@ class BaseItem(TimeParserMixin):
     frontmatter: dict = field(default_factory=dict, metadata={"internal": True})
     source_path: Path | None = field(default_factory=Path, metadata={"internal": True})
 
-    def __post_init__(self):
-        for name, field in self.__dataclass_fields__.items():
-            if not field.metadata.get("internal") and name in self.frontmatter:
-                fm_value = self.frontmatter[name]
-                if field.metadata.get("datetime") and type(fm_value) == str:
-                    setattr(self, name, self.parse_str(fm_value))
-                else:
-                    setattr(self, name, fm_value)
 
-    def to_markdown(self, path: Path | str):
-        # ensure fm updated before saving
-        for name, field in self.__dataclass_fields__.items():
-            if not field.metadata.get("internal"):
-                value = getattr(self, name, None)
+def __post_init__(self):
+    for field_name, field_def in self.__dataclass_fields__.items():
+        if not field_def.metadata.get("internal") and field_name in self.frontmatter:
+            fm_value = self.frontmatter[field_name]
+            if field_def.metadata.get("datetime") and isinstance(fm_value, str):
+                setattr(self, field_name, self.parse_str(fm_value))
+            else:
+                setattr(self, field_name, fm_value)
 
-                if value is None:
-                    value = ""
 
-                self.frontmatter[name] = value
+def to_markdown(self, path: Path | str):
+    # ensure fm updated before saving
+    for field_name, field_def in self.__dataclass_fields__.items():
+        if not field_def.metadata.get("internal"):
+            value = getattr(self, field_name, None)
 
+            if value is None:
+                value = ""
+
+            self.frontmatter[field_name] = value
         md = frontmatter.Post(content=self.content, **self.frontmatter)
         path = Path(path)
 

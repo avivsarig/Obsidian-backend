@@ -1,0 +1,55 @@
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | build
+  | dist
+  | \.vulture_whitelist\.py
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["src", "automation"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start relaxed, tighten later
+ignore_missing_imports = true
+exclude = [
+    ".vulture_whitelist.py$"
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv"]
+skips = ["B101"]  # Skip assert_used test
+
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--verbose --cov=src --cov-report=term-missing"
+
+[tool.vulture]
+exclude = ["venv/", ".venv/", "build/", "dist/"]
+min_confidence = 60
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "semver"
+version_provider = "poetry"
+update_changelog_on_bump = true

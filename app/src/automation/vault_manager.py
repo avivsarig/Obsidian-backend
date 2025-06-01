@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Type
+
 import frontmatter
 from classes import BaseItem
 
@@ -13,14 +13,14 @@ class VaultManager:
     def read_note(
         self,
         filepath: str | Path,
-        item_class: Type[BaseItem] = BaseItem,
+        item_class: type[BaseItem] = BaseItem,
     ) -> BaseItem:
         """Read a single note and return it as an item object"""
         path = Path(filepath)
         if not path.exists():
             raise FileNotFoundError(f"Note not found: {filepath}")
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             post = frontmatter.load(f)
 
         return item_class(
@@ -56,7 +56,7 @@ class VaultManager:
     def get_notes(
         self,
         folder: str,
-        return_item: Type[BaseItem] = BaseItem,
+        return_item: type[BaseItem] = BaseItem,
     ):
         """Read all notes from a specific folder"""
 

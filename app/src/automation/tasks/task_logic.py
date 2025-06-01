@@ -1,8 +1,7 @@
-import logging
-from croniter import croniter
 from datetime import datetime
 
-from classes import TaskItem, ArchiveItem
+from classes import ArchiveItem, TaskItem
+from croniter import croniter
 from logger import LoggingMixin
 from vault_manager import VaultManager
 
@@ -35,7 +34,8 @@ class TaskProcessor(LoggingMixin):
             vault.move_note(item=task, destination_dir=config["completed_tasks"])
 
         # is do_date expired?
-        # TODO: datetime is invalid for some reason, e.g.: do_date = 2025-04-01, of type <class 'datetime.date'>
+        # TODO: datetime is invalid for some reason
+        # e.g.: do_date = 2025-04-01, of type <class 'datetime.date'>
         if not isinstance(task.do_date, datetime):
             self.logger.info("Do date is invalid - setting for today")
             self.logger.info(f"do_date = {task.do_date}, of type {type(task.do_date)}")
@@ -69,7 +69,8 @@ class TaskProcessor(LoggingMixin):
         # make sure is_project is up to date
         if (task.content == "") == task.is_project:
             self.logger.info(
-                f"Task has {'no' if not task.content else ''} content - is_project changed to {not task.is_project}"
+                f"Task has {'no' if not task.content else ''} "
+                "content - is_project changed to {not task.is_project}"
             )
             task.is_project = not task.is_project
 
@@ -83,7 +84,7 @@ class TaskProcessor(LoggingMixin):
                 f"Task completed {(datetime.now() - task.completed_at).days} days ago"
             )
             if not task.is_project:
-                self.logger.info(f"Deleting over-retented task")
+                self.logger.info("Deleting over-retented task")
                 vault.delete_note(task)
             else:
                 self.archive_task(
@@ -123,11 +124,10 @@ class TaskProcessor(LoggingMixin):
     def get_next_occurrence(self, task: TaskItem):
         if not task.repeat_task:
             return None
-        return (
-            croniter(task.repeat_task, datetime.now())
-            .get_next(datetime)
-            .strftime("%Y-%m-%d")
-        )
+        cron = croniter(task.repeat_task, datetime.now())
+        next_timestamp = cron.get_next()
+        next_time = datetime.fromtimestamp(next_timestamp)
+        return next_time.strftime("%Y-%m-%d")
 
     def reset_repeating_task(
         self,
@@ -136,15 +136,16 @@ class TaskProcessor(LoggingMixin):
         config,
     ):
         last_occurrence = self.get_last_occurrence(task)
-        next_do_date = self.get_next_occurrence(task)
+        next_do_date_str = self.get_next_occurrence(task)
+        next_do_date_dt = datetime.strptime(next_do_date_str, "%Y-%m-%d")
 
         if task.due_date and last_occurrence:
             grace_period = task.due_date - last_occurrence
-            task.due_date = next_do_date + grace_period
+            task.due_date = (next_do_date_dt + grace_period).strftime("%Y-%m-%d")
         else:
             task.due_date = None
 
-        task.do_date = next_do_date
+        task.do_date = next_do_date_str
         task.done = False
         task.completed_at = None
 

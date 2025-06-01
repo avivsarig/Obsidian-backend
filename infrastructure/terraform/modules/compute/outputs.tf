@@ -19,6 +19,6 @@ output "public_dns" {
 }
 
 output "ssh_connection_command" {
-  value = "ssh -i ~/.ssh/id_rsa ubuntu@${aws_instance.web.public_ip}"
+  value       = "ssh -i ~/.ssh/id_rsa ubuntu@${aws_instance.web.public_ip}"
   description = "Command to SSH to the instance"
 }

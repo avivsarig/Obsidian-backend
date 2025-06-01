@@ -20,9 +20,12 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.xml
+.tox/
 
 # Logs
 *.log
+logs/
 
 # Database
 *.sqlite3
@@ -39,6 +42,45 @@ Thumbs.db
 *.tfstate
 *.tfstate.backup
 
-# keys
+# Keys and secrets
 *.pem
 keys/
+secrets/
+*.key
+*.crt
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# FastAPI specific
+.cache/
+.mypy_cache/
+.ruff_cache/
+
+# AWS and deployment
+.aws/
+*.zip
+deployment-package/
+
+# Local development
+local/
+tmp/
+temp/
+
+# Configuration overrides
+config.local.yaml
+*.local.yml
+*.local.yaml
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Documentation build
+docs/_build/
+docs/site/
+
+# Pre-commit
+.pre-commit-cache/

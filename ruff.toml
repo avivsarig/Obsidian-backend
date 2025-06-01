@@ -1,0 +1,36 @@
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "S",   # bandit
+]
+ignore = [
+    "E501",  # line too long
+    "S101",  # use of assert
+]
+
+exclude = [
+    ".vulture_whitelist.py",
+    "venv",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+exclude = [
+    ".vulture_whitelist.py",
+    "venv",
+    ".venv",
+]

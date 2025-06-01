@@ -1,0 +1,9 @@
+# TFSec configuration to reduce noise
+severity_overrides:
+  HIGH: ERROR
+  MEDIUM: WARNING
+  LOW: INFO
+
+exclude:
+  - aws-ec2-no-public-ip # We need public IP for web server
+  - aws-vpc-no-public-ingress-sgr # Web server needs HTTP access

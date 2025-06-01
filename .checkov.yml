@@ -1,0 +1,24 @@
+framework:
+  - terraform
+
+skip-check:
+  # Cost/complexity for development environments
+  - CKV_AWS_126 # Detailed monitoring adds costs
+  - CKV2_AWS_11 # VPC flow logs add costs
+
+  # Development-specific network requirements
+  - CKV_AWS_130 # Public subnet auto-assign IPs (needed for simple setup)
+  - CKV_AWS_260 # HTTP from 0.0.0.0/0 (API needs public access)
+  - CKV2_AWS_12 # Default VPC security group (using custom SG)
+  - CKV2_AWS_5 # Security group attachment (attached via instance)
+
+# Enable checks for production only
+check:
+  - CKV_AWS_*
+  - CKV2_AWS_*
+
+# Exclude test files and examples
+skip-path:
+  - "*/test_*"
+  - "*/example_*"
+  - "*/.terraform/*"

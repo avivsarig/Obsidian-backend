@@ -1,0 +1,15 @@
+# Testing
+pytest
+pytest-cov
+pytest-asyncio
+pytest-xdist
+
+# Code analysis
+ruff
+
+# Type stubs
+types-croniter
+types-PyYAML
+types-requests
+
+pre-commit
