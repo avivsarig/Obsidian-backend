@@ -19,7 +19,7 @@ line_length = 88
 known_first_party = ["src", "automation"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false  # Start relaxed, tighten later
@@ -27,6 +27,7 @@ ignore_missing_imports = true
 exclude = [
     ".vulture_whitelist.py$"
 ]
+explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"

@@ -2,9 +2,6 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 
-# Import your API routes
-from api.routes.v1 import v1_router
-
 # TODO: Import core components
 # from core.config import get_settings
 # from core.exceptions import TaskAutomationException
@@ -12,14 +9,13 @@ from api.routes.v1 import v1_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Import your API routes
+from app.src.api.routes.v1 import v1_router
+from app.src.core.config import get_settings
+
 # TODO: Import middleware components
 # from api.middleware.auth import APIKeyMiddleware
 # from api.middleware.logging import LoggingMiddleware
-
-
-# TODO:
-def get_settings():
-    return {}
 
 
 settings = get_settings()
@@ -38,7 +34,7 @@ async def lifespan(app: FastAPI):
         f"{settings.environment if settings else 'development'} mode"
     )
 
-    if settings and not settings.vault_path.exists():
+    if settings.vault_path and not settings.vault_path.exists():
         raise ValueError(f"Vault path does not exist: {settings.vault_path}")
 
     yield
@@ -98,7 +94,7 @@ app = create_app()
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app",
+        "app.src.main:app",
         host="0.0.0.0",  # nosec B104 # noqa: S104 - Required for container networking
         port=8000,
         reload=True,
