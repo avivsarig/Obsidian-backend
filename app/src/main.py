@@ -1,37 +1,30 @@
+import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
-
-# from core.exceptions import TaskAutomationException
-# from core.logging import setup_logging
 from fastapi import FastAPI
 
 from app.src.api.routes.v1 import v1_router
 from app.src.core.config import get_settings
-
-# TODO: Import middleware components
-# from api.middleware.auth import APIKeyMiddleware
-# from api.middleware.logging import LoggingMiddleware
-
-
-settings = get_settings()
+from app.src.core.exceptions.exception_handlers import setup_exception_handlers
+from app.src.core.middleware.request_tracking import setup_request_tracking_middleware
 
 # TODO:
-# setup_logging(settings.log_level)
+# from core.logging import setup_logging
+# from api.middleware.auth import APIKeyMiddleware
+
+logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import logging
-
-    logger = logging.getLogger("uvicorn.error")
     logger.info(
-        "Starting Task Automation API in "
-        f"{settings.environment if settings else 'development'} mode"
+        f"Starting API in {settings.environment if settings else 'development'} mode"
     )
 
     if settings.vault_path:
-        logger.info(f"Using vault path: {settings.vault_path}")
+        logger.info(f"Using vault: {settings.vault_path}")
         if not settings.vault_path.exists():
             raise ValueError(f"Vault path does not exist: {settings.vault_path}")
     else:
@@ -39,7 +32,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    logger.info("Shutting down Task Automation API")
+    logger.info("Shutting down API")
 
 
 def create_app() -> FastAPI:
@@ -56,23 +49,11 @@ def create_app() -> FastAPI:
         ),
     )
 
+    setup_request_tracking_middleware(app)
+    setup_exception_handlers(app)
+
     # TODO:
-    # API keys are simpler than OAuth for automation tasks
     # app.add_middleware(APIKeyMiddleware)
-
-    # TODO:
-    # app.add_middleware(LoggingMiddleware)
-
-    # TODO:
-    # Converts internal errors to consistent API responses
-    # @app.exception_handler(TaskAutomationException)
-    # async def task_automation_exception_handler(
-    #     request: Request, exc: TaskAutomationException
-    # ):
-    #     return JSONResponse(
-    #         status_code=exc.status_code,
-    #         content={"error": exc.message, "detail": exc.detail},
-    #     )
 
     app.include_router(v1_router, prefix="/api")
 
@@ -84,7 +65,7 @@ app = create_app()
 if __name__ == "__main__":
     uvicorn.run(
         "app.src.main:app",
-        host="0.0.0.0",  # nosec B104 # noqa: S104 - Required for container networking
+        host="0.0.0.0",  # nosec B104 # noqa: S104
         port=8000,
         reload=True,
         log_level="info",
