@@ -128,10 +128,8 @@ pytest --cov=app/src app/tests/
 ## Infrastructure
 
 AWS deployment via Terraform:
-- EC2 instances (t3.micro dev, t3.small prod)
+- EC2 instances (t3.micro prod)
 - VPC with public/private subnets
-- CloudWatch monitoring
-- Cost budgets (~$30/month)
 
 ## Contributing
 
