@@ -5,7 +5,6 @@ import uvicorn
 # from core.exceptions import TaskAutomationException
 # from core.logging import setup_logging
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.src.api.routes.v1 import v1_router
 from app.src.core.config import get_settings
@@ -55,17 +54,6 @@ def create_app() -> FastAPI:
         redoc_url=(
             "/redoc" if settings and settings.environment == "development" else "/redoc"
         ),
-    )
-
-    # TODO: Consider actual need
-    # Allows browser-based clients to call API from different domains
-    # In Phase 1 might not be needed, but sets foundation for future web UI
-    app.add_middleware(
-        CORSMiddleware,
-        # allow_origins=settings.allowed_origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE"],
-        allow_headers=["*"],
     )
 
     # TODO:
