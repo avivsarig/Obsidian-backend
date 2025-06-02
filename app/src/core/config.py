@@ -25,8 +25,8 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if not kwargs.get("vault_path"):
-            kwargs["vault_path"] = self._discover_vault_path()
+        if not self.vault_path:
+            self.vault_path = self._discover_vault_path()
 
     @property
     def host(self) -> str:

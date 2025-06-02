@@ -2,14 +2,11 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 
-# TODO: Import core components
-# from core.config import get_settings
 # from core.exceptions import TaskAutomationException
 # from core.logging import setup_logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Import your API routes
 from app.src.api.routes.v1 import v1_router
 from app.src.core.config import get_settings
 
@@ -28,14 +25,18 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     import logging
 
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger("uvicorn.error")
     logger.info(
         "Starting Task Automation API in "
         f"{settings.environment if settings else 'development'} mode"
     )
 
-    if settings.vault_path and not settings.vault_path.exists():
-        raise ValueError(f"Vault path does not exist: {settings.vault_path}")
+    if settings.vault_path:
+        logger.info(f"Using vault path: {settings.vault_path}")
+        if not settings.vault_path.exists():
+            raise ValueError(f"Vault path does not exist: {settings.vault_path}")
+    else:
+        logger.warning("No vault path configured")
 
     yield
 
