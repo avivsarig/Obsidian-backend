@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 
 # Import your API routes
-from api.routes import health, tasks
+from api.routes.v1 import v1_router
 
 # TODO: Import core components
 # from core.config import get_settings
@@ -65,7 +65,7 @@ def create_app() -> FastAPI:
     # In Phase 1 might not be needed, but sets foundation for future web UI
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.allowed_origins,
+        # allow_origins=settings.allowed_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
@@ -89,8 +89,9 @@ def create_app() -> FastAPI:
     #         content={"error": exc.message, "detail": exc.detail},
     #     )
 
-    app.include_router(health.router, prefix="/api/v1", tags=["health"])
-    app.include_router(tasks.router, prefix="/api/v1", tags=["tasks"])
+    app.include_router(v1_router, prefix="/api")
+
+    return app
 
 
 app = create_app()
