@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Optional
 
 import frontmatter
-from helper import TimeParserMixin
+
+from app.src.automation.helper import TimeParserMixin
 
 StrODate = str | datetime | None
 

@@ -1,11 +1,15 @@
 from pathlib import Path
 
 import frontmatter
-from classes import BaseItem
+
+from app.src.automation.classes import BaseItem
 
 
 class VaultManager:
-    def __init__(self, vault_path: str | Path):
+    def __init__(
+        self,
+        vault_path: str | Path,
+    ):
         self.vault_path = Path(vault_path)
         if not self.vault_path.exists():
             raise ValueError(f"Vault path does not exist: {vault_path}")
@@ -15,7 +19,6 @@ class VaultManager:
         filepath: str | Path,
         item_class: type[BaseItem] = BaseItem,
     ) -> BaseItem:
-        """Read a single note and return it as an item object"""
         path = Path(filepath)
         if not path.exists():
             raise FileNotFoundError(f"Note not found: {filepath}")
@@ -35,7 +38,10 @@ class VaultManager:
         item: BaseItem,
         destination_dir: str | Path,
     ):
-        """Move a note to a new location within the vault"""
+        if item.source_path is None:
+            raise ValueError(
+                f"Cannot move item '{item.title}' - no source file path available"
+            )
 
         dest_path = Path(destination_dir)
 
@@ -58,8 +64,6 @@ class VaultManager:
         folder: str,
         return_item: type[BaseItem] = BaseItem,
     ):
-        """Read all notes from a specific folder"""
-
         item_path = self.vault_path / folder
         items = []
 
@@ -78,7 +82,6 @@ class VaultManager:
             item.source_path = None
 
     def write_note(self, item: BaseItem, subfolder: str = "") -> Path:
-        """Write an item to the vault"""
         output_path = self.vault_path / subfolder
         output_path.mkdir(parents=True, exist_ok=True)
 
