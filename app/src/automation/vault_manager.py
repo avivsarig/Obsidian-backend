@@ -38,22 +38,18 @@ class VaultManager:
         item: BaseItem,
         destination_dir: str | Path,
     ):
-        if item.source_path is None:
-            raise ValueError(
-                f"Cannot move item '{item.title}' - no source file path available"
-            )
-
+        source_path = item.require_source_path()
         dest_path = Path(destination_dir)
 
         if not dest_path.is_absolute():
             dest_path = self.vault_path / dest_path
 
-        dest_path = dest_path / item.source_path.name
+        dest_path = dest_path / source_path.name
 
         dest_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            item.source_path.replace(dest_path)
+            source_path.replace(dest_path)
             item.source_path = dest_path
 
         except OSError as e:
@@ -63,9 +59,9 @@ class VaultManager:
         self,
         folder: str,
         return_item: type[BaseItem] = BaseItem,
-    ):
+    ) -> list[BaseItem]:
         item_path = self.vault_path / folder
-        items = []
+        items: list[BaseItem] = []
 
         for file in item_path.glob("*.md"):
             items.append(self.read_note(file, return_item))
@@ -76,17 +72,20 @@ class VaultManager:
         self,
         item: BaseItem,
     ):
-        """Delete items file"""
-        if item.source_path:
-            item.source_path.unlink()
-            item.source_path = None
+        source_path = item.require_source_path()
+        source_path.unlink()
+        item.source_path = None
 
     def write_note(self, item: BaseItem, subfolder: str = "") -> Path:
         output_path = self.vault_path / subfolder
         output_path.mkdir(parents=True, exist_ok=True)
 
         item.to_markdown(output_path)
-        return output_path / f"{item.title}.md"
+
+        file_path = output_path / f"{item.title}.md"
+        item.source_path = file_path
+
+        return file_path
 
     # def find_notes(self, pattern: str = "*.md") -> List[Path]:
     #     """Find all notes matching the pattern"""
