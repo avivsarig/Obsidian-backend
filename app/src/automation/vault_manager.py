@@ -51,7 +51,7 @@ class VaultManager:
             item.source_path = dest_path
 
         except OSError as e:
-            raise RuntimeError(f"Faild to move note: {e}") from e
+            raise RuntimeError(f"Failed to move note: {e}") from e
 
     def get_notes(
         self,

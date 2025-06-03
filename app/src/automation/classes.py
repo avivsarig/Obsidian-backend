@@ -16,32 +16,33 @@ class BaseItem(TimeParserMixin):
     frontmatter: dict = field(default_factory=dict, metadata={"internal": True})
     source_path: Path | None = field(default_factory=Path, metadata={"internal": True})
 
+    def __post_init__(self):
+        for field_name, field_def in self.__dataclass_fields__.items():
+            if (
+                not field_def.metadata.get("internal")
+                and field_name in self.frontmatter
+            ):
+                fm_value = self.frontmatter[field_name]
+                if field_def.metadata.get("datetime") and isinstance(fm_value, str):
+                    setattr(self, field_name, self.parse_str(fm_value))
+                else:
+                    setattr(self, field_name, fm_value)
 
-def __post_init__(self):
-    for field_name, field_def in self.__dataclass_fields__.items():
-        if not field_def.metadata.get("internal") and field_name in self.frontmatter:
-            fm_value = self.frontmatter[field_name]
-            if field_def.metadata.get("datetime") and isinstance(fm_value, str):
-                setattr(self, field_name, self.parse_str(fm_value))
-            else:
-                setattr(self, field_name, fm_value)
+    def to_markdown(self, path: Path | str):
+        # ensure fm updated before saving
+        for field_name, field_def in self.__dataclass_fields__.items():
+            if not field_def.metadata.get("internal"):
+                value = getattr(self, field_name, None)
 
+                if value is None:
+                    value = ""
 
-def to_markdown(self, path: Path | str):
-    # ensure fm updated before saving
-    for field_name, field_def in self.__dataclass_fields__.items():
-        if not field_def.metadata.get("internal"):
-            value = getattr(self, field_name, None)
+                self.frontmatter[field_name] = value
+            md = frontmatter.Post(content=self.content, **self.frontmatter)
+            path = Path(path)
 
-            if value is None:
-                value = ""
-
-            self.frontmatter[field_name] = value
-        md = frontmatter.Post(content=self.content, **self.frontmatter)
-        path = Path(path)
-
-        with open(path / f"{self.title}.md", "w", encoding="utf-8") as f:
-            f.write(frontmatter.dumps(md))
+            with open(path / f"{self.title}.md", "w", encoding="utf-8") as f:
+                f.write(frontmatter.dumps(md))
 
 
 @dataclass

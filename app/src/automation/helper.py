@@ -3,7 +3,6 @@ from datetime import datetime
 
 class TimeParserMixin:
     def parse_str(self, date_str: str):
-        # don't parse empty string
         if date_str == "":
             return None
 
