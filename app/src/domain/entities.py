@@ -5,7 +5,7 @@ from typing import Optional
 
 import frontmatter
 
-from app.src.automation.helper import TimeParserMixin
+from app.src.domain.date_parser import TimeParserMixin
 
 StrODate = str | datetime | None
 

@@ -5,10 +5,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from app.src.automation.classes import TaskItem
 from app.src.core.config import Settings, get_settings
 from app.src.core.dependencies import get_vault_config, get_vault_manager
 from app.src.core.exceptions.item_exceptions import ItemNotFoundError
+from app.src.domain.entities import TaskItem
 
 router = APIRouter()
 

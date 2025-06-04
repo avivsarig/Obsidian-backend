@@ -2,7 +2,7 @@ from pathlib import Path
 
 import frontmatter
 
-from app.src.automation.classes import BaseItem
+from app.src.domain.entities import BaseItem
 
 
 class VaultManager:

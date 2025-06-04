@@ -1,8 +1,8 @@
 from functools import lru_cache
 
-from app.src.automation.vault_config import get_config
-from app.src.automation.vault_manager import VaultManager
 from app.src.core.config import get_settings
+from app.src.infrastructure.vault_config import get_config
+from app.src.infrastructure.vault_manager import VaultManager
 
 
 @lru_cache
