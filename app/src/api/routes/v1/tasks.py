@@ -9,7 +9,8 @@ from app.src.core.dependencies import get_vault_config, get_vault_manager
 from app.src.core.exceptions.exception_schemas import ErrorResponse
 from app.src.core.exceptions.item_exceptions import ItemNotFoundError
 from app.src.domain.entities import TaskItem
-from app.src.models.api_models import TaskListResponse, TaskResponse
+from app.src.domain.task_processor import TaskProcessor
+from app.src.models.api_models import ProcessingResponse, TaskListResponse, TaskResponse
 
 router = APIRouter()
 
@@ -96,3 +97,62 @@ async def get_task(
         TaskItem,
     )
     return TaskResponse.from_task_item(task)
+
+
+@router.post(
+    "/process-active",
+    response_model=ProcessingResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Process all active tasks",
+    responses={
+        500: {
+            "model": ErrorResponse,
+            "description": "Task processing failed",
+        },
+    },
+)
+async def process_active_tasks(
+    vault=Depends(get_vault_manager),  # noqa: B008
+    config=Depends(get_vault_config),  # noqa: B008
+) -> ProcessingResponse:
+    processor = TaskProcessor()
+    active_tasks = vault.get_notes(config["tasks"], TaskItem)
+
+    for task in active_tasks:
+        processor.process_active_task(vault, task, config)
+
+    return ProcessingResponse(
+        processed=len(active_tasks),
+        message=f"Processed {len(active_tasks)} active tasks",
+    )
+
+
+@router.post(
+    "/process-completed",
+    response_model=ProcessingResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Process all completed tasks",
+    responses={
+        500: {
+            "model": ErrorResponse,
+            "description": "Task processing failed",
+        },
+    },
+)
+async def process_completed_tasks(
+    vault=Depends(get_vault_manager),  # noqa: B008
+    config=Depends(get_vault_config),  # noqa: B008
+) -> ProcessingResponse:
+    processor = TaskProcessor()
+    completed_tasks = vault.get_notes(config["completed_tasks"], TaskItem)
+
+    # Get retention setting from config
+    retent_for_days = config.get("retent_for_days", 14)
+
+    for task in completed_tasks:
+        processor.process_completed_task(vault, task, config, retent_for_days)
+
+    return ProcessingResponse(
+        processed=len(completed_tasks),
+        message=f"Processed {len(completed_tasks)} completed tasks",
+    )

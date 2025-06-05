@@ -36,3 +36,8 @@ class TaskListResponse(BaseModel):
     total: int = Field(..., description="Total number of tasks")
     active: int = Field(..., description="Number of active tasks")
     completed: int = Field(..., description="Number of completed tasks")
+
+
+class ProcessingResponse(BaseModel):
+    processed: int = Field(..., description="Number of tasks processed")
+    message: str = Field(..., description="Summary of processing results")

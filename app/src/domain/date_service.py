@@ -93,6 +93,9 @@ class DateService:
         )
 
     def format_for_storage(self, dt: datetime, field_name: str) -> str:
+        if isinstance(dt, str):
+            return dt
+
         if field_name == "completed_at":
             return dt.strftime("%Y-%m-%dT%H:%M:%S")
 
