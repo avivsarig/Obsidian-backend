@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 def setup_exception_handlers(app: FastAPI) -> None:
+    _add_error_schemas_to_openapi(app)
+
     @app.exception_handler(BaseAPIException)
     async def api_exception_handler(
         request: Request, exc: BaseAPIException
@@ -61,3 +63,56 @@ def setup_exception_handlers(app: FastAPI) -> None:
             status_code=500,
             content=response_data,
         )
+
+
+def _add_error_schemas_to_openapi(app: FastAPI) -> None:
+    def enhanced_openapi_generator():
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        # Import here to avoid circular dependencies during app initialization
+        from fastapi.openapi.utils import get_openapi
+
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+
+        for path_data in openapi_schema.get("paths", {}).values():
+            for method_data in path_data.values():
+                if isinstance(method_data, dict) and "responses" in method_data:
+                    _add_error_responses_to_endpoint(method_data["responses"])
+
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+
+    app.openapi = enhanced_openapi_generator
+
+
+def _add_error_responses_to_endpoint(responses: dict) -> None:
+    # Import schemas here to avoid circular imports
+    from app.src.core.exceptions.exception_schemas import (
+        ServerErrorResponse,
+        ValidationErrorResponse,
+    )
+
+    # Only add generic schemas if no specific error responses are defined
+    if "400" not in responses:
+        responses["400"] = {
+            "description": "Bad Request",
+            "content": {
+                "application/json": {
+                    "schema": ValidationErrorResponse.model_json_schema()
+                }
+            },
+        }
+
+    if "500" not in responses:
+        responses["500"] = {
+            "description": "Internal Server Error",
+            "content": {
+                "application/json": {"schema": ServerErrorResponse.model_json_schema()}
+            },
+        }

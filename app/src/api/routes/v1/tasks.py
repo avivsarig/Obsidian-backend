@@ -2,11 +2,12 @@ import urllib
 import urllib.parse
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel, Field
 
 from app.src.core.config import Settings, get_settings
 from app.src.core.dependencies import get_vault_config, get_vault_manager
+from app.src.core.exceptions.exception_schemas import ErrorResponse
 from app.src.core.exceptions.item_exceptions import ItemNotFoundError
 from app.src.domain.entities import TaskItem
 
@@ -48,7 +49,18 @@ class TaskListResponse(BaseModel):
     completed: int = Field(..., description="Number of completed tasks")
 
 
-@router.get("/", response_model=TaskListResponse)
+@router.get(
+    "/",
+    response_model=TaskListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List all tasks",
+    responses={
+        500: {
+            "model": ErrorResponse,
+            "description": "Vault access failed or filesystem error",
+        },
+    },
+)
 async def list_tasks(
     include_completed: Annotated[
         bool,
@@ -80,7 +92,18 @@ async def list_tasks(
     )
 
 
-@router.get("/{task_id}")
+@router.get(
+    "/{task_id}",
+    response_model=TaskResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get specific task",
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Task not found",
+        },
+    },
+)
 async def get_task(
     task_id: str,
     vault=Depends(get_vault_manager),  # noqa: B008
