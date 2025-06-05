@@ -1,4 +1,4 @@
-from app.src.automation.vault_manager import VaultManager
+from app.src.infrastructure.vault_manager import VaultManager
 
 
 class TaskService:

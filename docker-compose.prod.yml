@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      target: production  # Uses production stage from Dockerfile
+    ports:
+      - "80:8000"  # Map to standard HTTP port
+    volumes:
+      # Production only mounts data, not source code
+      - /opt/vault:/vault:ro  # Read-only vault access
+      - ./logs:/app/logs      # Log persistence
+    environment:
+      - VAULT_PATH=/vault
+      - LOG_LEVEL=WARNING
+      - ENVIRONMENT=production
+      # - API_KEY=${API_KEY}    # Inject from environment or secrets
+    # Production restart policy - always restart on failure
+    restart: always
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    # Security: don't run as root
+    user: "1000:1000"
+    # Health check with tighter timeouts for production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

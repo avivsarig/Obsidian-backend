@@ -83,10 +83,6 @@ def _check_git_status() -> str:
             return "unavailable"
 
         repo = git.Repo(vault_path)
-        return "ok" if not repo.is_dirty() else "dirty"
-    except ImportError:
+        return "ok" if repo.head.is_valid() else "error"
+    except Exception:
         return "unavailable"
-    except (git.exc.InvalidGitRepositoryError, git.exc.NoSuchPathError):
-        return "unavailable"
-    except (OSError, ValueError):
-        return "error"
