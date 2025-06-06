@@ -3,6 +3,7 @@ from datetime import datetime
 
 from croniter import croniter
 
+from app.src.domain.date_service import get_date_service
 from app.src.domain.entities import ArchiveItem, TaskItem
 from app.src.infrastructure.vault_manager import VaultManager
 
@@ -16,7 +17,11 @@ class TaskProcessor:
         task: TaskItem,
         config,
     ):
+        from app.src.domain.date_service import get_date_service
+
         logger.info(f"Processing active task: {task.title}")
+        date_service = get_date_service()
+
         if task.done and task.repeat_task:
             logger.info("Task is done and repeating - resetting")
             self.reset_repeating_task(
@@ -26,31 +31,59 @@ class TaskProcessor:
             )
             return
 
-        # if done - update completed_at
         if task.done and not task.completed_at:
             logger.info("Task is done - filling completion date")
             task.completed_at = datetime.now()
 
-        # if completed_at but not done - clear completed_at
         if task.completed_at and not task.done:
             logger.info("Task not done - clearing completion date")
             task.completed_at = None
 
-        # if done and has completed_at - move to completed tasks dir
         if task.done and task.completed_at:
             logger.info("Task is done - moving to completion cache")
             vault.move_note(item=task, destination_dir=config["completed_tasks"])
+            return
 
-        # is do_date expired?
-        # TODO: datetime is invalid for some reason
-        # e.g.: do_date = 2025-04-01, of type <class 'datetime.date'>
-        if not isinstance(task.do_date, datetime):
-            logger.info("Do date is invalid - setting for today")
-            logger.info(f"do_date = {task.do_date}, of type {type(task.do_date)}")
-            task.do_date = datetime.today().strftime("%Y-%m-%d")
-        elif (task.do_date.date() - datetime.today().date()).days < 0:
-            logger.info("Do date have passed - setting for today")
-            task.do_date = datetime.today().strftime("%Y-%m-%d")
+        normalized_do_date = date_service.normalize_for_field(task.do_date, "do_date")
+
+        if not normalized_do_date:
+            logger.info("No do_date set - setting for today")
+            task.do_date = datetime.today()
+        elif normalized_do_date.date() < datetime.today().date():
+            logger.info("Do date has passed - setting for today")
+            task.do_date = datetime.today()
+        else:
+            task.do_date = normalized_do_date
+
+        vault.write_note(task, target_dir=config["tasks"])
+
+    def reset_repeating_task(
+        self,
+        task: TaskItem,
+        vault: VaultManager,
+        config,
+    ):
+        date_service = get_date_service()
+        last_occurrence = self.get_last_occurrence(task)
+        next_do_date_str = self.get_next_occurrence(task)
+
+        next_do_date_dt = date_service.parse_datevalue_to_parseddate(next_do_date_str)
+
+        if task.due_date and last_occurrence:
+            normalized_due_date = date_service.normalize_for_field(
+                task.due_date, "due_date"
+            )
+            if normalized_due_date:
+                grace_period = normalized_due_date - last_occurrence
+                task.due_date = next_do_date_dt + grace_period
+            else:
+                task.due_date = None
+        else:
+            task.due_date = None
+
+        task.do_date = next_do_date_dt
+        task.done = False
+        task.completed_at = None
 
         vault.write_note(task, target_dir=config["tasks"])
 
@@ -136,25 +169,3 @@ class TaskProcessor:
         next_timestamp = cron.get_next()
         next_time = datetime.fromtimestamp(next_timestamp)
         return next_time.strftime("%Y-%m-%d")
-
-    def reset_repeating_task(
-        self,
-        task: TaskItem,
-        vault: VaultManager,
-        config,
-    ):
-        last_occurrence = self.get_last_occurrence(task)
-        next_do_date_str = self.get_next_occurrence(task)
-        next_do_date_dt = datetime.strptime(next_do_date_str, "%Y-%m-%d")
-
-        if task.due_date and last_occurrence:
-            grace_period = task.due_date - last_occurrence
-            task.due_date = (next_do_date_dt + grace_period).strftime("%Y-%m-%d")
-        else:
-            task.due_date = None
-
-        task.do_date = next_do_date_str
-        task.done = False
-        task.completed_at = None
-
-        vault.write_note(task, target_dir=config["tasks"])

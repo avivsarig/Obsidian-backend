@@ -93,9 +93,9 @@ class VaultManager:
                 original_error=e,
             ) from e
 
-    def _write_item_to_file(self, item: BaseItem, path: Path):
+    def _write_item_to_file(self, item: BaseItem, file_path: Path):
+        item._sync_to_frontmatter()
         md = frontmatter.Post(content=item.content, **item.frontmatter)
-        file_path = path / f"{item.title}.md"
 
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(frontmatter.dumps(md))
@@ -133,10 +133,6 @@ class VaultManager:
     ) -> None:
         # sort to prevent deadlocks
         paths_to_lock = sorted([source_path, dest_path], key=str)
-
-        # with self.file_locker.acquire_write_lock(paths_to_lock[0]):
-        #     with self.file_locker.acquire_write_lock(paths_to_lock[1]):
-        #         source_path.replace(dest_path)
 
         with (
             self.file_locker.acquire_write_lock(paths_to_lock[0]),
