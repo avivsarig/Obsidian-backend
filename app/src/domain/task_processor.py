@@ -52,7 +52,7 @@ class TaskProcessor:
             logger.info("Do date have passed - setting for today")
             task.do_date = datetime.today().strftime("%Y-%m-%d")
 
-        vault.write_note(task, subfolder=config["tasks"])
+        vault.write_note(task, target_dir=config["tasks"])
 
     def process_completed_task(
         self,
@@ -121,7 +121,7 @@ class TaskProcessor:
             tags=["Archived-task"],
         )
 
-        vault.write_note(item=archive_item, subfolder=config["archive"])
+        vault.write_note(item=archive_item, target_dir=config["archive"])
         vault.delete_note(task)
 
     def get_last_occurrence(self, task: TaskItem):
@@ -157,4 +157,4 @@ class TaskProcessor:
         task.done = False
         task.completed_at = None
 
-        vault.write_note(task, subfolder=config["tasks"])
+        vault.write_note(task, target_dir=config["tasks"])

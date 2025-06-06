@@ -1,8 +1,14 @@
 from functools import lru_cache
 
 from app.src.core.config import get_settings
+from app.src.infrastructure.locking.file_locker import FileLocker
 from app.src.infrastructure.vault_config import get_config
 from app.src.infrastructure.vault_manager import VaultManager
+
+
+@lru_cache
+def get_file_locker() -> FileLocker:
+    return FileLocker()
 
 
 @lru_cache
@@ -13,8 +19,11 @@ def get_vault_manager() -> VaultManager:
         raise ValueError(
             "Vault path is not configured. Set VAULT_PATH environment variable"
         )
-
-    return VaultManager(settings.vault_path)
+    file_locker = get_file_locker()
+    return VaultManager(
+        settings.vault_path,
+        file_locker,
+    )
 
 
 @lru_cache

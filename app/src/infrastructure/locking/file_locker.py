@@ -37,7 +37,7 @@ class FileLocker:
                 yield
         except Exception as e:
             raise VaultConcurrencyError(
-                message=f"Failed to acquire write lock fo {file_path}",
+                message=f"Failed to acquire write lock for {file_path}",
                 resource=str(file_path),
                 timeout_seconds=self.timeout_seconds,
             ) from e

@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import frontmatter
-
 from app.src.domain.date_service import get_date_service
 from app.src.domain.value_objects import DateValue
 
@@ -16,10 +14,6 @@ class BaseItem:
 
     def __post_init__(self):
         self._sync_from_frontmatter()
-
-    def to_markdown(self, path: Path | str):
-        self._sync_to_frontmatter()
-        self._write_markdown_file(Path(path))
 
     def _sync_from_frontmatter(self):
         date_service = get_date_service()
@@ -54,13 +48,6 @@ class BaseItem:
             for name, field_def in self.__dataclass_fields__.items()
             if not field_def.metadata.get("internal")
         ]
-
-    def _write_markdown_file(self, path: Path):
-        md = frontmatter.Post(content=self.content, **self.frontmatter)
-        file_path = path / f"{self.title}.md"
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(frontmatter.dumps(md))
 
     @property
     def is_persisted(self) -> bool:
