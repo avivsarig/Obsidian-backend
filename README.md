@@ -1,143 +1,338 @@
-# Obsidian Task Automation
+# Obsidian Task Automation API
 
-FastAPI wrapper for automated Obsidian task management with Git-based vault operations.
+**Phase 1 Development** - A FastAPI wrapper around existing Obsidian task automation scripts, with file locking and atomic operations for safe concurrent access.
 
-## Overview
+## What This System Does
 
-Transforms existing Python automation scripts into a REST API for programmatic task management. Designed to integrate with Obsidian vaults stored in Git repositories.
+This API provides programmatic access to your existing Obsidian task automation workflows. It wraps your current task processing logic in REST endpoints, allowing external systems to trigger task operations while preserving data integrity through file locking.
 
-**Status:** Phase 1 Development - Basic API wrapping of existing automation logic
+**Current Status**: Core task operations are functional with proper concurrency protection. The system can safely process active and completed tasks, handle task queries, and maintain vault consistency.
 
-## Architecture
+**Planned Integration**: Future phases will add WhatsApp bot integration, Google Workspace synchronization, and automated batch processing via GitHub Actions.
 
-- **Interactive Operations**: FastAPI on AWS EC2 (this repo)
-- **Batch Operations**: GitHub Actions (planned)
-- **Storage**: Git-based Obsidian vault with markdown files
+## Architecture Overview
 
-## Project Structure
+The system follows clean architecture principles with clear separation between API, domain logic, and infrastructure concerns:
 
+```mermaid
+graph TD
+    %% External clients
+    Client[External Clients<br/>WhatsApp, Web UI, Scripts]
+
+    %% API Layer
+    subgraph "FastAPI Application"
+        subgraph "API Layer"
+            Routes[API Routes<br/>/api/v1/tasks/*]
+            Middleware[Middleware<br/>Request tracking, Error handling]
+            Validation[Request Validation<br/>Pydantic models]
+        end
+
+        subgraph "Domain Layer"
+            TaskProcessor[TaskProcessor<br/>Business logic]
+            DateService[DateService<br/>Date normalization]
+            Entities[Domain Entities<br/>TaskItem, ArchiveItem]
+        end
+
+        subgraph "Infrastructure Layer"
+            VaultManager[VaultManager<br/>File operations]
+            FileLocker[FileLocker<br/>Concurrency control]
+            AtomicOps[Atomic Operations<br/>Safe file writes]
+        end
+    end
+
+    %% External storage
+    Vault[(Obsidian Vault<br/>Git Repository)]
+
+    %% Data flow
+    Client --> Routes
+    Routes --> Middleware
+    Middleware --> Validation
+    Validation --> TaskProcessor
+    TaskProcessor --> DateService
+    TaskProcessor --> Entities
+    TaskProcessor --> VaultManager
+    VaultManager --> FileLocker
+    VaultManager --> AtomicOps
+    VaultManager --> Vault
+
+    %% Styling
+    classDef apiLayer fill:#e1f5fe
+    classDef domainLayer fill:#f3e5f5
+    classDef infraLayer fill:#e8f5e8
+    classDef external fill:#fff3e0
+
+    class Routes,Middleware,Validation apiLayer
+    class TaskProcessor,DateService,Entities domainLayer
+    class VaultManager,FileLocker,AtomicOps infraLayer
+    class Client,Vault external
 ```
-app/src/
-├── automation/          # Original task automation logic
-│   ├── classes.py       # TaskItem, ArchiveItem dataclasses
-│   ├── vault_manager.py # File operations for Obsidian vault
-│   ├── task_logic.py    # Core task processing functions
-│   └── config.yaml      # Automation settings
-├── api/routes/v1/       # FastAPI endpoints
-├── core/config.py       # API configuration
-├── models/              # Pydantic models (TODO)
-└── services/            # Business logic layer (TODO)
+
+## Current Implementation Status
+
+**✅ Implemented and Working:**
+- Task querying (list all tasks, get specific task)
+- Task processing workflows (active and completed task processing)
+- File locking system preventing concurrent modification conflicts
+- Atomic file operations ensuring data consistency
+- Health check endpoint with vault status verification
+- Docker containerization with development and production configurations
+- AWS infrastructure as code with Terraform
+- Comprehensive error handling with structured responses
+- Request tracking and logging middleware
+
+**🚧 Work in Progress:**
+- API authentication (middleware structure exists, implementation pending)
+- Task creation and update endpoints (CRUD operations)
+- Comprehensive test suite (structure in place, tests not written)
+- Service layer architecture (partial implementation)
+
+**📋 Planned for Future Phases:**
+- WhatsApp bot integration for natural language task creation
+- Google Workspace synchronization (Calendar, Gmail, Docs)
+- GitHub Actions for automated batch processing
+- Advanced monitoring and alerting integrations
+- Enhanced logging configuration
+
+## API Endpoints
+
+### Currently Implemented
+```
+GET    /api/v1/tasks              # List all tasks (with optional filtering)
+GET    /api/v1/tasks/{task_id}    # Get specific task details
+POST   /api/v1/tasks/process-active    # Process all active tasks
+POST   /api/v1/tasks/process-completed # Process completed tasks with retention
+GET    /api/v1/health             # Health check with vault status
 ```
 
-## Setup
+### Planned for Phase 2
+```
+POST   /api/v1/tasks              # Create new task (TODO)
+PUT    /api/v1/tasks/{task_id}    # Update existing task (TODO)
+DELETE /api/v1/tasks/{task_id}    # Delete task (TODO)
+```
 
-### Development
+Each endpoint returns structured JSON responses with proper HTTP status codes, request tracking IDs, and detailed error information in development mode.
 
+## Quick Start
+
+### Using Docker (Recommended)
 ```bash
-# Clone and install
-git clone <repo-url>
-cd obsidian-task-automation
+# Development setup with live reload
+docker-compose up
+
+# Production deployment
+docker-compose -f docker-compose.prod.yml up
+```
+
+### Local Development
+```bash
+# Install dependencies
+pip install -r requirements.txt
 pip install -r requirements-dev.txt
 
-# Run locally (from project root)
+# Configure vault path
+export VAULT_PATH=/path/to/your/obsidian/vault
+
+# Run the application
 uvicorn app.src.main:app --reload
 
-# Or with Python module syntax
-python -m app.src.main
+# Access the API documentation
+open http://localhost:8000/docs
 ```
 
-### Production
+## Configuration
 
+### Environment Variables
 ```bash
-# Deploy infrastructure
+VAULT_PATH=/path/to/obsidian/vault    # Required: Path to your Obsidian vault
+ENVIRONMENT=development               # development | production
+LOG_LEVEL=INFO                       # DEBUG | INFO | WARNING | ERROR
+API_KEY=your-secret-key              # Authentication key for API access
+PORT=8000                            # Server port (defaults to 8000)
+```
+
+### Vault Settings
+Edit `app/src/infrastructure/vault_settings.yaml`:
+```yaml
+tasks: "Tasks"                        # Folder for active tasks
+completed_tasks: "Tasks/Completed"    # Folder for completed tasks
+archive: "Knowledge Archive"          # Folder for archived projects
+retent_for_days: 14                  # Days to retain completed tasks
+```
+
+## Task Data Model
+
+The system works with markdown files containing YAML frontmatter. Here's the task structure:
+
+```yaml
+---
+is_project: false
+do_date: "2025-06-07"
+due_date: "2025-06-10T17:00"
+completed_at: ""
+done: false
+is_high_priority: true
+repeat_task: "0 9 * * 1"  # Cron expression for weekly repeats
+---
+
+# Task Title
+
+Task description and notes go here. This content becomes the task body.
+
+- Subtasks can be included
+- Links to other notes work normally
+- All Obsidian features are preserved
+```
+
+## Development Workflow
+
+### Code Quality Tools
+```bash
+# Run all pre-commit checks
+pre-commit run --all-files
+
+# Type checking
+mypy app/src
+
+# Code formatting
+ruff format app/
+
+# Security scanning
+bandit -r app/src
+```
+
+### Testing
+```bash
+# TODO: Tests are not yet implemented
+# Test structure is in place but test files are empty
+# pytest --cov=app/src app/tests/
+
+# Current test structure:
+# app/tests/unit/      (empty)
+# app/tests/integration/   (empty)
+```
+
+### Infrastructure Management
+```bash
+# Deploy to production
 cd infrastructure/terraform/environments/prod
 terraform init
 terraform plan
 terraform apply
 
-# TODO: Docker deployment commands
+# Validate infrastructure changes
+cd infrastructure/terraform
+tflint --recursive
+tfsec .
 ```
 
-## API Endpoints
+## Production Deployment
 
-### Current (Phase 1)
-- `GET /health` - Health check
-- `POST /api/v1/tasks/process-active` - TODO: Process active tasks
-- `POST /api/v1/tasks/process-completed` - TODO: Process completed tasks
+### AWS Infrastructure
+The included Terraform configuration provides:
+- **EC2 instances** with security groups and SSH access
+- **VPC networking** with public subnets and internet gateways
+- **Cost optimization** through instance scheduling and budget alerts
+- **Security hardening** with encrypted volumes and IMDSv2
 
-### Planned (Phase 2)
-- `GET /api/v1/tasks` - List tasks
-- `GET /api/v1/tasks/{id}` - Get task details
-- `POST /api/v1/tasks` - Create task
-- `PUT /api/v1/tasks/{id}` - Update task
+### Cost Management
+- **Development:** t3.micro instance (~€8.50/month)
+- **Production:** t3.small instance (~€17/month)
+- **Storage:** 20GB EBS GP3 (~€1.60/month)
+- **Total estimated cost:** ~€30/month well under budget constraints
 
-## Configuration
-
-### Automation Settings
-Edit `app/src/automation/config.yaml`:
-```yaml
-tasks: "Tasks"
-completed_tasks: "Tasks/Completed"
-archive: "Knowledge Archive"
-retent_for_days: 14
-```
-
-### API Settings
-Set environment variables:
+### Deployment Process
 ```bash
-VAULT_PATH=/path/to/obsidian/vault
-API_KEY=your-secret-key
-LOG_LEVEL=INFO
+# Build and deploy container
+docker build -t obsidian-automation .
+docker tag obsidian-automation:latest your-registry/obsidian-automation:latest
+docker push your-registry/obsidian-automation:latest
+
+# Deploy infrastructure
+terraform apply -var-file="terraform.tfvars"
+
+# Verify deployment
+curl https://your-domain/api/v1/health
 ```
 
-## Task Model
+## Concurrency and Data Safety
 
-```python
-@dataclass
-class TaskItem:
-    title: str
-    content: str
-    is_project: bool = False
-    do_date: str | datetime | None = ""
-    due_date: str | datetime | None = ""
-    completed_at: str | datetime | None = ""
-    done: bool = False
-    is_high_priority: bool = False
-    repeat_task: Optional[str] = ""
-```
+The system implements comprehensive concurrency protection:
 
-## Development Roadmap
+**File Locking:** Every file operation acquires exclusive locks to prevent simultaneous modifications from corrupting data or creating merge conflicts.
 
-- **Phase 1**: Basic API wrapping (current)
-- **Phase 2**: Enhanced Pydantic models + file locking
-- **Phase 3**: Full service layer + GitHub Actions batch processing
-- **Phase 4**: WhatsApp & Google Workspace integrations
+**Atomic Operations:** File writes use temporary files with atomic replacement, ensuring that operations either complete fully or leave no partial changes.
 
-## Testing
+**Retry Logic:** Failed operations automatically retry with exponential backoff, handling transient issues like network interruptions or temporary file locks.
 
-```bash
-# TODO: Run tests
-pytest app/tests/
+**Error Recovery:** Comprehensive exception handling ensures that failed operations are logged, temporary files are cleaned up, and the system remains in a consistent state.
 
-# TODO: Run with coverage
-pytest --cov=app/src app/tests/
-```
+## Integration Capabilities
 
-**Status:** No tests implemented yet. Test structure is in place but all test files are empty.
+The architecture is designed for easy extension with external systems:
 
-## Infrastructure
+**📋 Planned Integrations (Future Phases):**
+- **WhatsApp Integration:** Natural language task creation via webhook endpoints that parse messages and create properly formatted tasks
+- **Google Workspace:** Sync with Google Calendar for due dates, Gmail for task creation from emails, and Google Docs for project documentation
+- **Custom Workflows:** The current REST API enables integration with any system that can make HTTP requests
 
-AWS deployment via Terraform:
-- EC2 instances (t3.micro prod)
-- VPC with public/private subnets
+**✅ Current Integration Points:**
+- REST API for programmatic task management
+- Docker containers for easy deployment
+- Git-based vault storage for version control integration
+
+## Security Considerations
+
+**🚧 Currently Implemented:**
+- Input validation through Pydantic models prevents injection attacks
+- File system access restricted to configured vault directory
+- Application runs with minimal privileges in Docker containers
+- Network security via AWS security groups (production deployment)
+
+**📋 Authentication (TODO):**
+- API key-based authentication planned but not yet implemented
+- Middleware structure exists in codebase but needs activation
+- Currently operates without authentication (development only)
+
+## Monitoring and Observability
+
+**✅ Currently Implemented:**
+- Health endpoints verify vault accessibility, file system status, and Git repository integrity
+- Request tracking with unique identifiers flowing through all log messages
+- Structured logging framework with contextual information
+- Basic error handling and exception translation
+
+**🚧 Monitoring Hooks (Partial):**
+- Alert system structure exists but integrations not configured
+- CloudWatch integration planned for production deployment
+- Error alerting framework ready but needs service connections
+
+**📋 TODO - External Integrations:**
+- Slack/email alert integrations
+- Advanced monitoring dashboards
+- Performance metrics collection
+- Distributed tracing capabilities
 
 ## Contributing
 
-1. Create feature branch
-2. Add tests for new functionality
-3. Ensure all tests pass
-4. Submit PR with clear description
+**Code Standards:** The project uses pre-commit hooks for automated code quality checks including formatting, linting, type checking, and security scanning.
+
+**Architecture Decisions:** Significant changes should follow the established clean architecture patterns with clear separation between API, domain, and infrastructure concerns.
+
+**Testing Requirements:** New features require both unit tests for business logic and integration tests for API endpoints.
+
+**Documentation:** Update relevant documentation including API schemas, configuration examples, and architectural decision records.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - See [LICENSE](LICENSE) for details.
+
+## Troubleshooting
+
+**Vault Path Issues:** Ensure the `VAULT_PATH` environment variable points to a valid Obsidian vault directory with `.git` initialization.
+
+**File Permission Errors:** Verify the application has read/write permissions to the vault directory and can create temporary files.
+
+**Lock Timeout Errors:** If you see concurrency errors, check for processes that might be holding file locks or increase the timeout settings.
+
+**Git Integration Problems:** Ensure the vault directory is a valid Git repository with proper remote configuration if you need Git synchronization features.
