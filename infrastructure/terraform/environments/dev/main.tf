@@ -46,8 +46,8 @@ module "compute" {
   security_group_ids = [module.networking.web_security_group_id]
 
   backend_repo_url    = var.backend_repo_url
-  backend_branch      = "main"
+  backend_branch      = "dev"
   vault_repo_url      = var.vault_repo_url
-  vault_branch        = "main"
-  auto_update_enabled = false # Production never auto-updates
+  vault_branch        = "dev"
+  auto_update_enabled = true
 }

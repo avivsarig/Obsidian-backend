@@ -40,9 +40,14 @@ resource "aws_instance" "web" {
     http_put_response_hop_limit = 1
   }
 
-  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    project_name = var.project_name
-    environment  = var.environment
+  user_data = base64encode(templatefile("${path.module}/cloud-init.yml", {
+    project_name        = var.project_name
+    environment         = var.environment
+    backend_repo_url    = var.backend_repo_url
+    backend_branch      = var.backend_branch
+    vault_repo_url      = var.vault_repo_url
+    vault_branch        = var.vault_branch
+    auto_update_enabled = var.auto_update_enabled
   }))
 
   root_block_device {

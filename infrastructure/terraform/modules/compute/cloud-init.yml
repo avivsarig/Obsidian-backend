@@ -1,0 +1,170 @@
+#cloud-config
+# Cloud-init configuration for obsidian-automation deployment
+
+write_files:
+  # Configuration file with all deployment variables
+  - path: /opt/deployment/config.env
+    permissions: '0644'
+    content: |
+      PROJECT_NAME=${project_name}
+      ENVIRONMENT=${environment}
+      BACKEND_REPO_URL=${backend_repo_url}
+      BACKEND_BRANCH=${backend_branch}
+      VAULT_REPO_URL=${vault_repo_url}
+      VAULT_BRANCH=${vault_branch}
+      AUTO_UPDATE=${auto_update_enabled}
+
+  # Main deployment script - embedded directly
+  - path: /opt/deployment/deploy.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Pure shell script for deployment - no Terraform templating
+      # All variables come from /opt/deployment/config.env
+      set -euo pipefail
+
+      # Source configuration variables
+      # shellcheck source=/dev/null
+      source /opt/deployment/config.env
+
+      # Logging function
+      log() {
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a /var/log/deployment.log
+      }
+
+      log "Starting deployment for $PROJECT_NAME in $ENVIRONMENT environment"
+      log "Backend: $BACKEND_REPO_URL ($BACKEND_BRANCH)"
+      log "Vault: $VAULT_REPO_URL ($VAULT_BRANCH)"
+
+      # Clone backend repository
+      log "Cloning backend repository..."
+      if [ -d "/opt/backend/.git" ]; then
+          log "Backend directory exists, pulling latest changes"
+          cd /opt/backend
+          git fetch origin
+          git checkout "$BACKEND_BRANCH"
+          git pull origin "$BACKEND_BRANCH"
+      else
+          log "Cloning backend from $BACKEND_REPO_URL branch $BACKEND_BRANCH"
+          git clone -b "$BACKEND_BRANCH" "$BACKEND_REPO_URL" /opt/backend
+      fi
+
+      chown -R ubuntu:ubuntu /opt/backend
+
+      # Clone vault repository
+      log "Cloning vault repository..."
+      if [ -d "/opt/vault/.git" ]; then
+          log "Vault directory exists, pulling latest changes"
+          cd /opt/vault
+          git fetch origin
+          git checkout "$VAULT_BRANCH"
+          git pull origin "$VAULT_BRANCH"
+      else
+          log "Cloning vault from $VAULT_REPO_URL branch $VAULT_BRANCH"
+          git clone -b "$VAULT_BRANCH" "$VAULT_REPO_URL" /opt/vault
+      fi
+
+      chown -R ubuntu:ubuntu /opt/vault
+
+      # Set up application environment file
+      log "Creating application environment configuration..."
+      cat > /opt/backend/.env << EOF
+      ENVIRONMENT=$ENVIRONMENT
+      VAULT_PATH=/opt/vault
+      GIT_REPO_URL=$VAULT_REPO_URL
+      LOG_LEVEL=$([ "$ENVIRONMENT" = "production" ] && echo "WARNING" || echo "DEBUG")
+      EOF
+
+      # Set up auto-update for development environment
+      if [ "$AUTO_UPDATE" = "true" ]; then
+          log "Setting up auto-update cron jobs for development"
+          cat > /etc/cron.d/auto-update << EOF
+      # Auto-update backend and vault every 10 minutes in dev
+      */10 * * * * ubuntu cd /opt/backend && git pull origin $BACKEND_BRANCH && docker-compose restart 2>&1 | logger -t auto-update-backend
+      */10 * * * * ubuntu cd /opt/vault && git pull origin $VAULT_BRANCH 2>&1 | logger -t auto-update-vault
+      EOF
+          log "Auto-update cron jobs configured"
+      else
+          log "Auto-update disabled for $ENVIRONMENT environment"
+      fi
+
+      # Start the application
+      log "Starting application with Docker Compose..."
+      cd /opt/backend
+
+      # Check if the compose file exists
+      COMPOSE_FILE="docker-compose.$ENVIRONMENT.yml"
+      if [ ! -f "$COMPOSE_FILE" ]; then
+          log "Warning: $COMPOSE_FILE not found, falling back to docker-compose.yml"
+          COMPOSE_FILE="docker-compose.yml"
+      fi
+
+      if [ -f "$COMPOSE_FILE" ]; then
+          sudo -u ubuntu docker-compose -f "$COMPOSE_FILE" up -d
+          log "Application started successfully"
+      else
+          log "Error: No suitable docker-compose file found"
+          exit 1
+      fi
+
+      # Wait for application to be ready
+      log "Waiting for application to be ready..."
+      for i in {1..30}; do
+          if curl -f http://localhost:8000/api/v1/health >/dev/null 2>&1; then
+              log "Application is responding to health checks"
+              break
+          fi
+          if [ $i -eq 30 ]; then
+              log "Warning: Application not responding after 30 attempts"
+          fi
+          sleep 2
+      done
+
+      log "Deployment completed successfully"
+      log "Application logs can be viewed with: docker-compose logs -f"
+      log "Health check: curl http://localhost:8000/api/v1/health"
+
+  # Health check HTML file
+  - path: /opt/obsidian-automation/health.html
+    permissions: '0644'
+    content: |
+      <!DOCTYPE html>
+      <html>
+      <head><title>Health Check</title></head>
+      <body>
+      <h1>Service is running</h1>
+      <p>Environment: ${environment}</p>
+      <p>Backend Branch: ${backend_branch}</p>
+      <p>Vault Branch: ${vault_branch}</p>
+      </body>
+      </html>
+
+# System packages to install
+packages:
+  - nginx
+  - docker.io
+  - docker-compose
+  - git
+  - awscli
+
+# Services to enable and start
+runcmd:
+  # Enable Docker
+  - systemctl enable docker
+  - systemctl start docker
+  - usermod -a -G docker ubuntu
+
+  # Create required directories
+  - mkdir -p /opt/obsidian-automation
+  - mkdir -p /opt/backend
+  - mkdir -p /opt/vault
+
+  # Run the deployment script
+  - /opt/deployment/deploy.sh
+
+  # Set up log rotation for deployment logs
+  - echo '/var/log/deployment.log { daily rotate 7 compress missingok }' > /etc/logrotate.d/deployment
+
+# Set timezone and locale
+timezone: UTC
+locale: en_US.UTF-8

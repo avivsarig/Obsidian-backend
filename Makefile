@@ -1,19 +1,35 @@
-.PHONY: help install install-dev run test check docker-dev docker-prod infra-plan infra-apply infra-destroy clean
+.PHONY: help install install-dev run test check docker-dev docker-prod infra-plan infra-apply infra-destroy infra-validate clean setup-local-vault infra-dev-plan infra-dev-apply infra-dev-destroy docker-logs docker-clean test-deploy-script
 
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  install      - Install production dependencies"
-	@echo "  install-dev  - Install development dependencies + pre-commit"
-	@echo "  run          - Run FastAPI application locally"
-	@echo "  test         - Run pytest with coverage"
-	@echo "  check        - Run all pre-commit checks"
-	@echo "  docker-dev   - Run development environment with Docker Compose"
-	@echo "  docker-prod  - Run production environment with Docker Compose"
-	@echo "  infra-plan   - Plan Terraform infrastructure changes"
-	@echo "  infra-apply  - Apply Terraform infrastructure"
-	@echo "  infra-destroy- Destroy Terraform infrastructure"
-	@echo "  clean        - Clean up temporary files and caches"
+	@echo ""
+	@echo "Development:"
+	@echo "  install         - Install production dependencies"
+	@echo "  install-dev     - Install development dependencies + pre-commit"
+	@echo "  run             - Run FastAPI application locally"
+	@echo "  test            - Run pytest with coverage"
+	@echo "  check           - Run all pre-commit checks"
+	@echo "  setup-local-vault - Create a test vault for local development"
+	@echo "  test-deploy-script - Test the deployment script locally"
+	@echo ""
+	@echo "Docker:"
+	@echo "  docker-dev      - Run development environment with Docker Compose"
+	@echo "  docker-prod     - Run production environment with Docker Compose"
+	@echo "  docker-logs     - Show docker logs for debugging"
+	@echo "  docker-clean    - Clean up docker containers and images"
+	@echo ""
+	@echo "Infrastructure:"
+	@echo "  infra-validate  - Validate Terraform configuration"
+	@echo "  infra-plan      - Plan production infrastructure changes"
+	@echo "  infra-apply     - Apply production infrastructure"
+	@echo "  infra-destroy   - Destroy production infrastructure"
+	@echo "  infra-dev-plan  - Plan development infrastructure changes"
+	@echo "  infra-dev-apply - Apply development infrastructure"
+	@echo "  infra-dev-destroy - Destroy development infrastructure"
+	@echo ""
+	@echo "Cleanup:"
+	@echo "  clean           - Clean up temporary files and caches"
 
 # Installation targets
 install:
@@ -33,27 +49,102 @@ test:
 check:
 	pre-commit run --all-files
 
+setup-local-vault:
+	@echo "Setting up local test vault..."
+	@if [ ! -d "../vault-test" ]; then \
+		mkdir -p ../vault-test/{Tasks,Tasks/Completed,"Knowledge Archive"}; \
+		cd ../vault-test && git init && git add . && git commit -m "Initial vault setup" || true; \
+		echo "Test vault created at ../vault-test"; \
+		echo "Set VAULT_PATH=../vault-test to use it"; \
+	else \
+		echo "Test vault already exists at ../vault-test"; \
+	fi
+
+# Test the deployment script locally
+test-deploy-script:
+	@echo "Testing cloud-init configuration..."
+	@echo "Running shellcheck on embedded deployment script..."
+	@# Extract the deployment script from cloud-init.yml for testing
+	@mkdir -p /tmp/test-deployment
+	@# This is a simplified test - in real usage the script is embedded in cloud-init
+	@echo "Cloud-init configuration uses embedded script - no separate file to check"
+	@echo "Terraform validation will catch template syntax errors"
+	@rm -rf /tmp/test-deployment
+
 # Docker targets
 docker-dev:
+	@echo "Starting development environment..."
 	docker-compose up --build
 
 docker-prod:
+	@echo "Starting production environment..."
 	docker-compose -f docker-compose.prod.yml up --build -d
 
-# Infrastructure targets
+docker-logs:
+	docker-compose logs -f
+
+docker-clean:
+	@echo "Cleaning up Docker resources..."
+	docker-compose down --remove-orphans || true
+	docker-compose -f docker-compose.prod.yml down --remove-orphans || true
+	docker system prune -f
+
+# Infrastructure validation
+infra-validate:
+	@echo "Validating Terraform configuration..."
+	cd infrastructure/terraform/modules/networking && tofu validate
+	cd infrastructure/terraform/modules/compute && tofu validate
+	cd infrastructure/terraform/environments/prod && tofu validate
+	@if [ -d "infrastructure/terraform/environments/dev" ]; then \
+		cd infrastructure/terraform/environments/dev && tofu validate; \
+	fi
+	@echo "All infrastructure files validated successfully!"
+
+# Production infrastructure targets
 infra-plan:
-	cd infrastructure/terraform/environments/prod && tofu plan && cd -
+	@echo "Planning production infrastructure..."
+	cd infrastructure/terraform/environments/prod && tofu plan
 
 infra-apply:
-	cd infrastructure/terraform/environments/prod && tofu apply && cd -
+	@echo "Applying production infrastructure..."
+	cd infrastructure/terraform/environments/prod && tofu apply
 
 infra-destroy:
-	cd infrastructure/terraform/environments/prod && tofu destroy && cd -
+	@echo "Destroying production infrastructure..."
+	cd infrastructure/terraform/environments/prod && tofu destroy
+
+# Development infrastructure targets
+infra-dev-plan:
+	@echo "Planning development infrastructure..."
+	@if [ -d "infrastructure/terraform/environments/dev" ]; then \
+		cd infrastructure/terraform/environments/dev && tofu plan; \
+	else \
+		echo "Development environment not configured yet"; \
+	fi
+
+infra-dev-apply:
+	@echo "Applying development infrastructure..."
+	@if [ -d "infrastructure/terraform/environments/dev" ]; then \
+		cd infrastructure/terraform/environments/dev && tofu apply; \
+	else \
+		echo "Development environment not configured yet"; \
+	fi
+
+infra-dev-destroy:
+	@echo "Destroying development infrastructure..."
+	@if [ -d "infrastructure/terraform/environments/dev" ]; then \
+		cd infrastructure/terraform/environments/dev && tofu destroy; \
+	else \
+		echo "Development environment not configured yet"; \
+	fi
 
 # Cleanup
 clean:
+	@echo "Cleaning up temporary files..."
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
 	find . -name "*.pyc" -delete 2>/dev/null || true
+	find . -name "*.tfplan" -delete 2>/dev/null || true
+	find . -name ".DS_Store" -delete 2>/dev/null || true

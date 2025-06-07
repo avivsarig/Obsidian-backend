@@ -34,3 +34,31 @@ variable "key_name" {
   type        = string
   default     = ""
 }
+
+variable "backend_repo_url" {
+  description = "Git repository URL for the backend code"
+  type        = string
+}
+
+variable "backend_branch" {
+  description = "Git branch to deploy for backend"
+  type        = string
+  default     = "main"
+}
+
+variable "vault_repo_url" {
+  description = "Git repository URL for the vault"
+  type        = string
+}
+
+variable "vault_branch" {
+  description = "Git branch to deploy for vault"
+  type        = string
+  default     = "main"
+}
+
+variable "auto_update_enabled" {
+  description = "Enable automatic git pulls (dev only)"
+  type        = bool
+  default     = false
+}
