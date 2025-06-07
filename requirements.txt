@@ -5,4 +5,4 @@ pyyaml
 python-frontmatter
 croniter
 uvicorn
-GitPython
+GitPython>=3.1.40

@@ -2,8 +2,10 @@ import logging
 from typing import cast
 
 from app.src.core.exceptions.item_exceptions import ItemNotFoundError
+from app.src.domain.date_service import DateService
 from app.src.domain.entities import TaskItem
 from app.src.domain.task_processor import TaskProcessor
+from app.src.infrastructure.git.git_manager import GitManager
 from app.src.infrastructure.vault_manager import VaultManager
 from app.src.models.api_models import ProcessingResponse, TaskListResponse, TaskResponse
 
@@ -16,10 +18,12 @@ class TaskService:
         vault_manager: VaultManager,
         task_processor: TaskProcessor,
         config: dict,
+        git_manager: GitManager | None = None,
     ):
         self.vault = vault_manager
         self.processor = task_processor
         self.config = config
+        self.git = git_manager
 
     def list_tasks(self, include_completed: bool = True) -> TaskListResponse:
         active_tasks = self._get_tasks_from_folder(self.config["tasks"])
@@ -56,6 +60,24 @@ class TaskService:
     def process_active_tasks(self) -> ProcessingResponse:
         active_tasks = self._get_tasks_from_folder(self.config["tasks"])
 
+        if self.git:
+            with self.git.batch_sync():
+                processed_count = self._process_active_tasks_batch(active_tasks)
+
+        else:
+            processed_count = self._process_active_tasks_batch(active_tasks)
+
+        return ProcessingResponse(
+            processed=processed_count,
+            message=f"Processed {processed_count} active tasks",
+        )
+
+    def _process_active_tasks_batch(
+        self,
+        active_tasks: list[TaskItem],
+    ) -> int:
+        processed_count = 0
+
         for task in active_tasks:
             try:
                 self.processor.process_active_task(
@@ -63,21 +85,42 @@ class TaskService:
                     task=task,
                     config=self.config,
                 )
+                processed_count += 1
                 logger.info(f"Processed active task: {task.title}")
+
             except Exception as e:
                 logger.error(f"Failed to process active task {task.title}: {e}")
                 continue
 
-        return ProcessingResponse(
-            processed=len(active_tasks),
-            message=f"Processed {len(active_tasks)} active tasks",
-        )
+        commit_timestamp = DateService.now_timestamp_str()
+        if self.git:
+            self.git.commit_changes(
+                f"{commit_timestamp} - Processed {processed_count} active tasks"
+            )
+
+        return processed_count
 
     def process_completed_tasks(self) -> ProcessingResponse:
         completed_tasks = self._get_tasks_from_folder(self.config["completed_tasks"])
-        retent_for_days = self.config.get("retent_for_days", 14)
 
+        if self.git:
+            with self.git.batch_sync():
+                processed_count = self._process_completed_tasks_batch(completed_tasks)
+        else:
+            processed_count = self._process_completed_tasks_batch(completed_tasks)
+
+        return ProcessingResponse(
+            processed=processed_count,
+            message=f"Processed {processed_count} completed tasks",
+        )
+
+    def _process_completed_tasks_batch(
+        self,
+        completed_tasks: list[TaskItem],
+    ) -> int:
+        retent_for_days = self.config.get("retent_for_days", 14)
         processed_count = 0
+
         for task in completed_tasks:
             try:
                 self.processor.process_completed_task(
@@ -88,17 +131,20 @@ class TaskService:
                 )
                 processed_count += 1
                 logger.info(f"Processed completed task: {task.title}")
+
             except Exception as e:
                 logger.error(f"Failed to process completed task {task.title}: {e}")
                 continue
 
-        return ProcessingResponse(
-            processed=processed_count,
-            message=f"Processed {processed_count} completed tasks",
-        )
+        commit_timestamp = DateService.now_timestamp_str()
+        if self.git:
+            self.git.commit_changes(
+                f"{commit_timestamp} - Processed {processed_count} completed tasks"
+            )
+
+        return processed_count
 
     def _get_tasks_from_folder(self, folder: str) -> list[TaskItem]:
-        """Helper to get typed tasks from folder"""
         # cast() needed because VaultManager.get_notes() returns list[BaseItem]
         # TODO: Make VaultManager generic when type system complexity is warranted
         return cast(list[TaskItem], self.vault.get_notes(folder, TaskItem))

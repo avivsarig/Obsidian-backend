@@ -46,6 +46,10 @@ class DateService:
         else:
             return None
 
+    @staticmethod
+    def now_timestamp_str() -> str:
+        return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
     def _get_field_time(
         self,
         field_name: str,
