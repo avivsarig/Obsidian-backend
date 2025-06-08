@@ -2,7 +2,6 @@ import logging
 from typing import cast
 
 from app.src.core.exceptions.item_exceptions import ItemNotFoundError
-from app.src.domain.date_service import DateService
 from app.src.domain.entities import TaskItem
 from app.src.domain.task_processor import TaskProcessor
 from app.src.infrastructure.git.git_manager import GitManager
@@ -92,12 +91,6 @@ class TaskService:
                 logger.error(f"Failed to process active task {task.title}: {e}")
                 continue
 
-        commit_timestamp = DateService.now_timestamp_str()
-        if self.git:
-            self.git.commit_changes(
-                f"{commit_timestamp} - Processed {processed_count} active tasks"
-            )
-
         return processed_count
 
     def process_completed_tasks(self) -> ProcessingResponse:
@@ -135,12 +128,6 @@ class TaskService:
             except Exception as e:
                 logger.error(f"Failed to process completed task {task.title}: {e}")
                 continue
-
-        commit_timestamp = DateService.now_timestamp_str()
-        if self.git:
-            self.git.commit_changes(
-                f"{commit_timestamp} - Processed {processed_count} completed tasks"
-            )
 
         return processed_count
 

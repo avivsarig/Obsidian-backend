@@ -144,11 +144,16 @@ class GitManager:
 
     @contextmanager
     def batch_sync(
-        self, commit_message: str = "Batch operation"
+        self, commit_message: str | None = None
     ) -> Generator[None, None, None]:
         if self._batch_mode:
             yield
             return
+
+        if commit_message is None:
+            from app.src.domain.date_service import DateService
+
+            commit_message = f"{DateService.now_timestamp_str()}: Batch operation"
 
         pull_success = self.pull_latest()
         if not pull_success:

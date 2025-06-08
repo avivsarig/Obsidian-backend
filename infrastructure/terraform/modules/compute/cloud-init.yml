@@ -1,5 +1,5 @@
 #cloud-config
-# Cloud-init configuration with secure vault access
+# Cloud-init configuration with secure vault access and nginx proxy
 
 write_files:
   # Configuration file with all deployment variables
@@ -15,6 +15,65 @@ write_files:
       AUTO_UPDATE=${auto_update_enabled}
       VAULT_DEPLOY_KEY_SECRET=${vault_deploy_key_secret_name}
       AWS_REGION=${aws_region}
+
+  # Nginx configuration for FastAPI proxy
+  - path: /etc/nginx/sites-available/obsidian-automation
+    permissions: '0644'
+    content: |
+      server {
+          listen 80;
+          server_name _;
+
+          # Security headers
+          add_header X-Frame-Options DENY;
+          add_header X-Content-Type-Options nosniff;
+          add_header X-XSS-Protection "1; mode=block";
+
+          # API endpoints
+          location /api/ {
+              proxy_pass http://localhost:8000;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_read_timeout 300;
+              proxy_connect_timeout 300;
+              proxy_send_timeout 300;
+          }
+
+          # Health check (allow direct access)
+          location /api/v1/health {
+              proxy_pass http://localhost:8000;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              access_log off;  # Don't log health checks
+          }
+
+          # Documentation endpoints (if needed)
+          location /docs {
+              proxy_pass http://localhost:8000;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+          }
+
+          location /redoc {
+              proxy_pass http://localhost:8000;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+          }
+
+          # Default response for other paths
+          location / {
+              return 404 '{"error": "Not Found", "message": "This endpoint does not exist"}';
+              add_header Content-Type application/json;
+          }
+      }
 
   # Main deployment script with secure key handling
   - path: /opt/deployment/deploy.sh
@@ -96,6 +155,25 @@ write_files:
           log "Vault repository cloned successfully"
       }
 
+      # Function to configure nginx
+      setup_nginx() {
+          log "Configuring nginx..."
+
+          # Remove default site
+          rm -f /etc/nginx/sites-enabled/default
+
+          # Enable our site
+          ln -sf /etc/nginx/sites-available/obsidian-automation /etc/nginx/sites-enabled/
+
+          # Test nginx configuration
+          nginx -t
+
+          # Reload nginx
+          systemctl reload nginx
+
+          log "Nginx configured successfully"
+      }
+
       log "Starting deployment for $PROJECT_NAME in $ENVIRONMENT environment"
       log "Backend: $BACKEND_REPO_URL ($BACKEND_BRANCH)"
       log "Vault: $VAULT_REPO_URL ($VAULT_BRANCH)"
@@ -129,6 +207,9 @@ write_files:
       LOG_LEVEL=$([ "$ENVIRONMENT" = "production" ] && echo "WARNING" || echo "DEBUG")
       EOF
 
+      # Configure nginx
+      setup_nginx
+
       # Set up auto-update for development environment
       if [ "$AUTO_UPDATE" = "true" ]; then
           log "Setting up auto-update cron jobs for development"
@@ -146,64 +227,13 @@ write_files:
       log "Starting application with Docker Compose..."
       cd /opt/backend
 
-      # Check if the compose file exists
-      COMPOSE_FILE="docker-compose.$ENVIRONMENT.yml"
+      # Use the production compose file and fix port mapping
+      COMPOSE_FILE="docker-compose.prod.yml"
       if [ ! -f "$COMPOSE_FILE" ]; then
           log "Warning: $COMPOSE_FILE not found, falling back to docker-compose.yml"
           COMPOSE_FILE="docker-compose.yml"
       fi
 
       if [ -f "$COMPOSE_FILE" ]; then
-          sudo -u ubuntu docker-compose -f "$COMPOSE_FILE" up -d
-          log "Application started successfully"
-      else
-          log "Error: No suitable docker-compose file found"
-          exit 1
-      fi
-
-      # Wait for application to be ready
-      log "Waiting for application to be ready..."
-      for i in {1..30}; do
-          if curl -f http://localhost:8000/api/v1/health >/dev/null 2>&1; then
-              log "Application is responding to health checks"
-              break
-          fi
-          if [ $i -eq 30 ]; then
-              log "Warning: Application not responding after 30 attempts"
-          fi
-          sleep 2
-      done
-
-      log "Deployment completed successfully"
-      log "Application logs can be viewed with: docker-compose logs -f"
-      log "Health check: curl http://localhost:8000/api/v1/health"
-
-# System packages to install
-packages:
-  - nginx
-  - docker.io
-  - docker-compose
-  - git
-  - awscli
-
-# Services to enable and start
-runcmd:
-  # Enable Docker
-  - systemctl enable docker
-  - systemctl start docker
-  - usermod -a -G docker ubuntu
-
-  # Create required directories
-  - mkdir -p /opt/obsidian-automation
-  - mkdir -p /opt/backend
-  - mkdir -p /opt/vault
-
-  # Run the deployment script
-  - /opt/deployment/deploy.sh
-
-  # Set up log rotation for deployment logs
-  - echo '/var/log/deployment.log { daily rotate 7 compress missingok }' > /etc/logrotate.d/deployment
-
-# Set timezone and locale
-timezone: UTC
-locale: en_US.UTF-8
+          # Modify the compose file to use port 8000 instead of 80
+          sed -i 's/

@@ -6,11 +6,11 @@ services:
       context: .
       target: production  # Uses production stage from Dockerfile
     ports:
-      - "80:8000"  # Map to standard HTTP port
+      - "8000:8000"  # Internal port, nginx proxies 80→8000
     volumes:
       # Production only mounts data, not source code
-      - /opt/vault:/vault:ro  # Read-only vault access
-      - ./logs:/app/logs      # Log persistence
+      - /opt/vault:/vault  # Read-only vault access (as intended)
+      - /var/log/obsidian-automation:/app/logs  # Proper log directory
     environment:
       - VAULT_PATH=/vault
       - LOG_LEVEL=WARNING

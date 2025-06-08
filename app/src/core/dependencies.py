@@ -2,6 +2,7 @@ from functools import lru_cache
 
 from app.src.core.config import get_settings
 from app.src.domain.task_processor import TaskProcessor
+from app.src.infrastructure.git.git_manager import GitManager
 from app.src.infrastructure.locking.file_locker import FileLocker
 from app.src.infrastructure.vault_config import get_config
 from app.src.infrastructure.vault_manager import VaultManager
@@ -38,6 +39,23 @@ def get_vault_manager() -> VaultManager:
     )
 
 
+@lru_cache
+def get_git_manager() -> GitManager | None:
+    try:
+        settings = get_settings()
+
+        if settings.vault_path is None:
+            return None
+
+        git_dir = settings.vault_path / ".git"
+        if not git_dir.exists():
+            return None
+
+        return GitManager(settings.vault_path)
+    except Exception:
+        return None
+
+
 def get_task_processor() -> TaskProcessor:
     return TaskProcessor()
 
@@ -46,9 +64,11 @@ def get_task_service() -> TaskService:
     vault_manager = get_vault_manager()
     task_processor = get_task_processor()
     config = get_vault_config()
+    git_manager = get_git_manager()
 
     return TaskService(
         vault_manager=vault_manager,
         task_processor=task_processor,
         config=config,
+        git_manager=git_manager,
     )
