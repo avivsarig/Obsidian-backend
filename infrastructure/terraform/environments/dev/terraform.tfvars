@@ -1,7 +1,0 @@
-environment       = "dev"
-aws_region        = "eu-west-1"
-project_name      = "obsidian-automation"
-instance_type     = "t3.micro"
-availability_zone = "eu-west-1a"
-backend_repo_url  = "https://github.com/avivsarig/Obsidian-backend.git"
-vault_repo_url    = "https://github.com/avivsarig/obsidian.git"

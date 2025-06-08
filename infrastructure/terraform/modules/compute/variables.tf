@@ -62,3 +62,14 @@ variable "auto_update_enabled" {
   type        = bool
   default     = false
 }
+
+variable "vault_deploy_key_secret_name" {
+  description = "Name of the secret containing the vault deploy key"
+  type        = string
+  default     = "obsidian-automation/vault-deploy-key"
+}
+
+variable "aws_region" {
+  description = "AWS region for resource creation"
+  type        = string
+}

@@ -49,5 +49,8 @@ module "compute" {
   backend_branch      = "main"
   vault_repo_url      = var.vault_repo_url
   vault_branch        = "main"
-  auto_update_enabled = false # Production never auto-updates
+  auto_update_enabled = false
+
+  aws_region                   = var.aws_region
+  vault_deploy_key_secret_name = "obsidian-automation/vault-deploy-key"
 }

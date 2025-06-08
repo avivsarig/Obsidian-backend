@@ -1,5 +1,5 @@
 #cloud-config
-# Cloud-init configuration for obsidian-automation deployment
+# Cloud-init configuration with secure vault access
 
 write_files:
   # Configuration file with all deployment variables
@@ -13,14 +13,14 @@ write_files:
       VAULT_REPO_URL=${vault_repo_url}
       VAULT_BRANCH=${vault_branch}
       AUTO_UPDATE=${auto_update_enabled}
+      VAULT_DEPLOY_KEY_SECRET=${vault_deploy_key_secret_name}
+      AWS_REGION=${aws_region}
 
-  # Main deployment script - embedded directly
+  # Main deployment script with secure key handling
   - path: /opt/deployment/deploy.sh
     permissions: '0755'
     content: |
       #!/bin/bash
-      # Pure shell script for deployment - no Terraform templating
-      # All variables come from /opt/deployment/config.env
       set -euo pipefail
 
       # Source configuration variables
@@ -32,11 +32,78 @@ write_files:
           echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a /var/log/deployment.log
       }
 
+      # Function to setup SSH key for private repository access
+      setup_ssh_key() {
+          log "Setting up SSH key for vault repository access..."
+
+          # Create .ssh directory for ubuntu user
+          mkdir -p /home/ubuntu/.ssh
+          chown ubuntu:ubuntu /home/ubuntu/.ssh
+          chmod 700 /home/ubuntu/.ssh
+
+          # Retrieve the deploy key from AWS Secrets Manager
+          log "Retrieving deploy key from AWS Secrets Manager..."
+          aws secretsmanager get-secret-value \
+              --secret-id "$VAULT_DEPLOY_KEY_SECRET" \
+              --region "$AWS_REGION" \
+              --query SecretString \
+              --output text > /home/ubuntu/.ssh/vault_deploy_key
+
+          # Set correct permissions on the private key
+          chown ubuntu:ubuntu /home/ubuntu/.ssh/vault_deploy_key
+          chmod 600 /home/ubuntu/.ssh/vault_deploy_key
+
+          # Configure SSH to use this key for GitHub vault repository
+          cat > /home/ubuntu/.ssh/config << EOF
+      Host github.com-vault
+          HostName github.com
+          User git
+          IdentityFile /home/ubuntu/.ssh/vault_deploy_key
+          IdentitiesOnly yes
+          StrictHostKeyChecking no
+      EOF
+
+          chown ubuntu:ubuntu /home/ubuntu/.ssh/config
+          chmod 600 /home/ubuntu/.ssh/config
+
+          log "SSH key setup completed"
+      }
+
+      # Function to clone repository with SSH key
+      clone_vault_with_key() {
+          log "Cloning vault repository with deploy key..."
+
+          # Convert HTTPS URL to SSH format with custom host
+          VAULT_SSH_URL=$(echo "$VAULT_REPO_URL" | sed 's|https://github.com/|git@github.com-vault:|')
+
+          if [ -d "/opt/vault/.git" ]; then
+              log "Vault directory exists, pulling latest changes"
+              chown -R ubuntu:ubuntu /opt/vault
+              cd /opt/vault
+              sudo -u ubuntu git fetch origin
+              sudo -u ubuntu git checkout "$VAULT_BRANCH"
+              sudo -u ubuntu git pull origin "$VAULT_BRANCH"
+          else
+              log "Cloning vault from $VAULT_SSH_URL branch $VAULT_BRANCH"
+              # Remove existing empty directory if it exists
+              rm -rf /opt/vault
+              # Clone as ubuntu user into ubuntu's home, then move to /opt
+              sudo -u ubuntu git clone -b "$VAULT_BRANCH" "$VAULT_SSH_URL" /home/ubuntu/vault-temp
+              mv /home/ubuntu/vault-temp /opt/vault
+              chown -R ubuntu:ubuntu /opt/vault
+          fi
+
+          log "Vault repository cloned successfully"
+      }
+
       log "Starting deployment for $PROJECT_NAME in $ENVIRONMENT environment"
       log "Backend: $BACKEND_REPO_URL ($BACKEND_BRANCH)"
       log "Vault: $VAULT_REPO_URL ($VAULT_BRANCH)"
 
-      # Clone backend repository
+      # Setup SSH key for private vault access
+      setup_ssh_key
+
+      # Clone backend repository (public, no special handling needed)
       log "Cloning backend repository..."
       if [ -d "/opt/backend/.git" ]; then
           log "Backend directory exists, pulling latest changes"
@@ -48,23 +115,10 @@ write_files:
           log "Cloning backend from $BACKEND_REPO_URL branch $BACKEND_BRANCH"
           git clone -b "$BACKEND_BRANCH" "$BACKEND_REPO_URL" /opt/backend
       fi
-
       chown -R ubuntu:ubuntu /opt/backend
 
-      # Clone vault repository
-      log "Cloning vault repository..."
-      if [ -d "/opt/vault/.git" ]; then
-          log "Vault directory exists, pulling latest changes"
-          cd /opt/vault
-          git fetch origin
-          git checkout "$VAULT_BRANCH"
-          git pull origin "$VAULT_BRANCH"
-      else
-          log "Cloning vault from $VAULT_REPO_URL branch $VAULT_BRANCH"
-          git clone -b "$VAULT_BRANCH" "$VAULT_REPO_URL" /opt/vault
-      fi
-
-      chown -R ubuntu:ubuntu /opt/vault
+      # Clone vault repository using deploy key
+      clone_vault_with_key
 
       # Set up application environment file
       log "Creating application environment configuration..."
@@ -81,7 +135,7 @@ write_files:
           cat > /etc/cron.d/auto-update << EOF
       # Auto-update backend and vault every 10 minutes in dev
       */10 * * * * ubuntu cd /opt/backend && git pull origin $BACKEND_BRANCH && docker-compose restart 2>&1 | logger -t auto-update-backend
-      */10 * * * * ubuntu cd /opt/vault && git pull origin $VAULT_BRANCH 2>&1 | logger -t auto-update-vault
+      */10 * * * * ubuntu cd /opt/vault && sudo -u ubuntu git pull origin $VAULT_BRANCH 2>&1 | logger -t auto-update-vault
       EOF
           log "Auto-update cron jobs configured"
       else
@@ -123,21 +177,6 @@ write_files:
       log "Deployment completed successfully"
       log "Application logs can be viewed with: docker-compose logs -f"
       log "Health check: curl http://localhost:8000/api/v1/health"
-
-  # Health check HTML file
-  - path: /opt/obsidian-automation/health.html
-    permissions: '0644'
-    content: |
-      <!DOCTYPE html>
-      <html>
-      <head><title>Health Check</title></head>
-      <body>
-      <h1>Service is running</h1>
-      <p>Environment: ${environment}</p>
-      <p>Backend Branch: ${backend_branch}</p>
-      <p>Vault Branch: ${vault_branch}</p>
-      </body>
-      </html>
 
 # System packages to install
 packages:

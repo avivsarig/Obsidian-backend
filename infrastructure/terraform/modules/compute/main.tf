@@ -41,13 +41,15 @@ resource "aws_instance" "web" {
   }
 
   user_data = base64encode(templatefile("${path.module}/cloud-init.yml", {
-    project_name        = var.project_name
-    environment         = var.environment
-    backend_repo_url    = var.backend_repo_url
-    backend_branch      = var.backend_branch
-    vault_repo_url      = var.vault_repo_url
-    vault_branch        = var.vault_branch
-    auto_update_enabled = var.auto_update_enabled
+    project_name                 = var.project_name
+    environment                  = var.environment
+    backend_repo_url             = var.backend_repo_url
+    backend_branch               = var.backend_branch
+    vault_repo_url               = var.vault_repo_url
+    vault_branch                 = var.vault_branch
+    auto_update_enabled          = var.auto_update_enabled
+    vault_deploy_key_secret_name = var.vault_deploy_key_secret_name
+    aws_region                   = var.aws_region
   }))
 
   root_block_device {
@@ -94,6 +96,27 @@ resource "aws_iam_role_policy" "parameter_store" {
           "ssm:GetParametersByPath"
         ]
         Resource = "arn:aws:ssm:*:*:parameter/${var.project_name}/${var.environment}/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "secrets_access" {
+  name = "${var.project_name}-${var.environment}-secrets-access"
+  role = aws_iam_role.web.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          # Using a pattern that matches your secret naming convention
+          "arn:aws:secretsmanager:${var.aws_region}:*:secret:${var.vault_deploy_key_secret_name}-*"
+        ]
       }
     ]
   })
