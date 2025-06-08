@@ -235,12 +235,6 @@ The included Terraform configuration provides:
 - **Cost optimization** through instance scheduling and budget alerts
 - **Security hardening** with encrypted volumes and IMDSv2
 
-### Cost Management
-- **Development:** t3.micro instance (~€8.50/month)
-- **Production:** t3.small instance (~€17/month)
-- **Storage:** 20GB EBS GP3 (~€1.60/month)
-- **Total estimated cost:** ~€30/month well under budget constraints
-
 ### Deployment Process
 ```bash
 # Build and deploy container

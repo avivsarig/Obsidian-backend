@@ -1,6 +1,5 @@
 .PHONY: help install install-dev run test check docker-dev docker-prod infra-plan infra-apply infra-destroy infra-validate clean setup-local-vault infra-dev-plan infra-dev-apply infra-dev-destroy docker-logs docker-clean test-deploy-script
 
-# Default target
 help:
 	@echo "Available targets:"
 	@echo ""
@@ -49,28 +48,6 @@ test:
 check:
 	pre-commit run --all-files
 
-setup-local-vault:
-	@echo "Setting up local test vault..."
-	@if [ ! -d "../vault-test" ]; then \
-		mkdir -p ../vault-test/{Tasks,Tasks/Completed,"Knowledge Archive"}; \
-		cd ../vault-test && git init && git add . && git commit -m "Initial vault setup" || true; \
-		echo "Test vault created at ../vault-test"; \
-		echo "Set VAULT_PATH=../vault-test to use it"; \
-	else \
-		echo "Test vault already exists at ../vault-test"; \
-	fi
-
-# Test the deployment script locally
-test-deploy-script:
-	@echo "Testing cloud-init configuration..."
-	@echo "Running shellcheck on embedded deployment script..."
-	@# Extract the deployment script from cloud-init.yml for testing
-	@mkdir -p /tmp/test-deployment
-	@# This is a simplified test - in real usage the script is embedded in cloud-init
-	@echo "Cloud-init configuration uses embedded script - no separate file to check"
-	@echo "Terraform validation will catch template syntax errors"
-	@rm -rf /tmp/test-deployment
-
 # Docker targets
 docker-dev:
 	@echo "Starting development environment..."
@@ -92,32 +69,32 @@ docker-clean:
 # Infrastructure validation
 infra-validate:
 	@echo "Validating Terraform configuration..."
-	cd infrastructure/terraform/modules/networking && tofu validate
-	cd infrastructure/terraform/modules/compute && tofu validate
-	cd infrastructure/terraform/environments/prod && tofu validate
+	cd infrastructure/terraform/modules/networking && tofu validate && cd -
+	cd infrastructure/terraform/modules/compute && tofu validate && cd -
+	cd infrastructure/terraform/environments/prod && tofu validate && cd -
 	@if [ -d "infrastructure/terraform/environments/dev" ]; then \
-		cd infrastructure/terraform/environments/dev && tofu validate; \
+		cd infrastructure/terraform/environments/dev && tofu validate && cd -; \
 	fi
 	@echo "All infrastructure files validated successfully!"
 
 # Production infrastructure targets
 infra-plan:
 	@echo "Planning production infrastructure..."
-	cd infrastructure/terraform/environments/prod && tofu plan
+	cd infrastructure/terraform/environments/prod && tofu plan && cd -
 
 infra-apply:
 	@echo "Applying production infrastructure..."
-	cd infrastructure/terraform/environments/prod && tofu apply
+	cd infrastructure/terraform/environments/prod && tofu apply && cd -
 
 infra-destroy:
 	@echo "Destroying production infrastructure..."
-	cd infrastructure/terraform/environments/prod && tofu destroy
+	cd infrastructure/terraform/environments/prod && tofu destroy && cd -
 
 # Development infrastructure targets
 infra-dev-plan:
 	@echo "Planning development infrastructure..."
 	@if [ -d "infrastructure/terraform/environments/dev" ]; then \
-		cd infrastructure/terraform/environments/dev && tofu plan; \
+		cd infrastructure/terraform/environments/dev && tofu plan && cd -; \
 	else \
 		echo "Development environment not configured yet"; \
 	fi
@@ -125,7 +102,7 @@ infra-dev-plan:
 infra-dev-apply:
 	@echo "Applying development infrastructure..."
 	@if [ -d "infrastructure/terraform/environments/dev" ]; then \
-		cd infrastructure/terraform/environments/dev && tofu apply; \
+		cd infrastructure/terraform/environments/dev && tofu apply && cd -; \
 	else \
 		echo "Development environment not configured yet"; \
 	fi
@@ -133,7 +110,7 @@ infra-dev-apply:
 infra-dev-destroy:
 	@echo "Destroying development infrastructure..."
 	@if [ -d "infrastructure/terraform/environments/dev" ]; then \
-		cd infrastructure/terraform/environments/dev && tofu destroy; \
+		cd infrastructure/terraform/environments/dev && tofu destroy && cd -; \
 	else \
 		echo "Development environment not configured yet"; \
 	fi

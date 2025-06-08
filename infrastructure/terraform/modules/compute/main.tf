@@ -52,7 +52,7 @@ resource "aws_instance" "web" {
 
   root_block_device {
     volume_type = "gp3"
-    volume_size = 5
+    volume_size = 8
     encrypted   = true
   }
 
@@ -74,6 +74,26 @@ resource "aws_iam_role" "web" {
         Principal = {
           Service = "ec2.amazonaws.com"
         }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "parameter_store" {
+  name = "${var.project_name}-${var.environment}-parameter-store"
+  role = aws_iam_role.web.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ]
+        Resource = "arn:aws:ssm:*:*:parameter/${var.project_name}/${var.environment}/*"
       }
     ]
   })
