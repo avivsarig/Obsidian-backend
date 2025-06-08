@@ -232,7 +232,6 @@ tfsec .
 The included Terraform configuration provides:
 - **EC2 instances** with security groups and SSH access
 - **VPC networking** with public subnets and internet gateways
-- **Cost optimization** through instance scheduling and budget alerts
 - **Security hardening** with encrypted volumes and IMDSv2
 
 ### Deployment Process

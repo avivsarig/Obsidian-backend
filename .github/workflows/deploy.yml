@@ -1,0 +1,108 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    # Required for OIDC authentication
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: '1.6.0'
+
+      - name: Get server info from OpenTofu
+        id: get_server
+        timeout-minutes: 3
+        run: |
+          cd infrastructure/terraform/environments/prod
+          tofu init -input=false
+          INSTANCE_ID=$(tofu output -raw instance_id)
+          IP=$(tofu output -raw instance_public_ip)
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          echo "server_ip=$IP" >> $GITHUB_OUTPUT
+          echo "Deploying to instance $INSTANCE_ID ($IP)"
+
+      - name: Deploy via Systems Manager
+        run: |
+          # Send deployment commands directly via SSM
+          aws ssm send-command \
+            --instance-ids "${{ steps.get_server.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "#!/bin/bash",
+              "set -euo pipefail",
+              "echo \"Starting deployment...\"",
+              "echo \"Docker version: $(docker --version 2>/dev/null || echo Docker not installed)\"",
+              "echo \"Backend directory exists: $([ -d /opt/backend ] && echo yes || echo no)\"",
+              "if [ ! -d \"/opt/backend\" ]; then echo \"Cloning backend repository...\" && sudo git clone https://github.com/avivsarig/Obsidian-backend.git /opt/backend && sudo chown -R ubuntu:ubuntu /opt/backend; fi",
+              "echo \"Fixing ownership and pulling latest code...\" && sudo chown -R ubuntu:ubuntu /opt/backend && cd /opt/backend && sudo -u ubuntu git fetch origin && sudo -u ubuntu git reset --hard origin/main",
+              "cd /opt/backend && COMPOSE_FILE=\"docker-compose.prod.yml\" && if [ ! -f \"$COMPOSE_FILE\" ]; then echo \"Warning: $COMPOSE_FILE not found, using docker-compose.yml\" && COMPOSE_FILE=\"docker-compose.yml\"; fi && echo \"Using compose file: $COMPOSE_FILE\"",
+              "cd /opt/backend && echo \"Stopping existing containers...\" && sudo -u ubuntu docker-compose -f $COMPOSE_FILE down 2>/dev/null || echo \"No containers to stop\"",
+              "cd /opt/backend && echo \"Building application...\" && sudo -u ubuntu docker-compose -f $COMPOSE_FILE build --no-cache",
+              "cd /opt/backend && echo \"Starting application...\" && sudo -u ubuntu docker-compose -f $COMPOSE_FILE up -d",
+              "echo \"Waiting for application to start...\" && for i in {1..30}; do if curl -f http://localhost:8000/api/v1/health >/dev/null 2>&1; then echo \"✅ Application deployed successfully\" && exit 0; fi; if [ \"$i\" -eq 30 ]; then echo \"❌ Application not responding after 30 attempts\" && cd /opt/backend && sudo -u ubuntu docker-compose logs --tail=20 && exit 1; fi; echo \"Attempt $i/30 - waiting for health check...\" && sleep 2; done"
+            ]' \
+            --output text \
+            --query 'Command.CommandId' > /tmp/command-id
+
+          # Wait for command to complete and get output
+          COMMAND_ID=$(cat /tmp/command-id)
+          echo "SSM Command ID: $COMMAND_ID"
+
+          # Wait for completion
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get_server.outputs.instance_id }}"
+
+          # Get command output
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get_server.outputs.instance_id }}" \
+            --query 'StandardOutputContent' \
+            --output text
+
+          # Check if command succeeded
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get_server.outputs.instance_id }}" \
+            --query 'Status' \
+            --output text)
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "❌ Deployment command failed with status: $STATUS"
+            # Get error output
+            aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ steps.get_server.outputs.instance_id }}" \
+              --query 'StandardErrorContent' \
+              --output text
+            exit 1
+          fi
+
+          echo "🚀 Deployment completed successfully"
+
+      - name: Verify deployment via health check
+        run: |
+          # Final verification via HTTP
+          curl -f http://${{ steps.get_server.outputs.server_ip }}:80/api/v1/health
+          echo "✅ Application is responding to external health checks"

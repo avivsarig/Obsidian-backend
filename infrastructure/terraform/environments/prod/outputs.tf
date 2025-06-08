@@ -12,3 +12,8 @@ output "instance_id" {
   value       = module.compute.instance_id
   description = "Instance ID"
 }
+
+output "github_actions_role_arn" {
+  description = "ARN of the role for GitHub Actions to assume"
+  value       = aws_iam_role.github_actions.arn
+}
