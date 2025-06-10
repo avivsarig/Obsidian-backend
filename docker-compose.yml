@@ -4,26 +4,29 @@ services:
   api:
     build:
       context: .
-      target: development  # Uses development stage from Dockerfile
+      target: production
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"  # Only expose to localhost, nginx will proxy
     volumes:
-      # Mount source code for live reloading during development
-      - ./src:/app/src
-      - ./tests:/app/tests
-      # Mount vault if it exists locally (adjust path as needed)
-      - ${VAULT_PATH:-../vault}:/vault
+      - /opt/vault:/vault
+      - /var/log/obsidian-automation:/app/logs
     environment:
       - VAULT_PATH=/vault
-      - LOG_LEVEL=DEBUG
-      - ENVIRONMENT=development
-      # - API_KEY=dev-key-change-in-production
-    # Restart policy for development convenience
-    restart: unless-stopped
-    # Health check matches the endpoint you already have
+      - LOG_LEVEL=WARNING
+      - ENVIRONMENT=production
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    user: "1000:1000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
-      interval: 30s
-      timeout: 10s
+      interval: 15s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 30s
