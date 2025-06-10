@@ -45,9 +45,39 @@ runcmd:
   - systemctl enable nginx
   - systemctl start nginx
 
-  # Deploy application
+  # Setup vault deploy key from Secrets Manager
+  - echo "Retrieving vault deploy key from AWS Secrets Manager..."
+  - aws secretsmanager get-secret-value --secret-id "${vault_deploy_key_secret_name}" --region "${aws_region}" --query SecretString --output text > /tmp/vault_deploy_key
+  - chmod 600 /tmp/vault_deploy_key
+  - mkdir -p /home/ubuntu/.ssh
+  - cp /tmp/vault_deploy_key /home/ubuntu/.ssh/vault_deploy_key
+  - chmod 600 /home/ubuntu/.ssh/vault_deploy_key
+  - chown ubuntu:ubuntu /home/ubuntu/.ssh/vault_deploy_key
+  - rm /tmp/vault_deploy_key
+
+  # Configure SSH for vault repository access
+  - |
+    cat >> /home/ubuntu/.ssh/config << 'EOF'
+    Host github.com-vault
+        HostName github.com
+        User git
+        IdentityFile ~/.ssh/vault_deploy_key
+        StrictHostKeyChecking no
+    EOF
+  - chown ubuntu:ubuntu /home/ubuntu/.ssh/config
+  - chmod 600 /home/ubuntu/.ssh/config
+
+  # Clone repositories
   - git clone https://github.com/avivsarig/Obsidian-backend.git /opt/backend
   - chown -R ubuntu:ubuntu /opt/backend
+
+  # Clone vault repository using deploy key
+  - echo "Cloning vault repository..."
+  - sudo -u ubuntu git clone git@github.com-vault:avivsarig/obsidian.git /tmp/vault
+  - mv /tmp/vault /opt
+  - chown -R ubuntu:ubuntu /opt/vault
+
+  # Deploy application
   - cd /opt/backend && docker-compose -f docker-compose.prod.yml up -d --build
 
   # Test and restart nginx after app is ready

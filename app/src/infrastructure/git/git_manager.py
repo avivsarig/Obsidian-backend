@@ -157,10 +157,12 @@ class GitManager:
 
         pull_success = self.pull_latest()
         if not pull_success:
-            raise VaultGitOperationError(
-                message="Failed to pull latest changes before batch operation",
-                operation="batch_sync_start",
-            )
+            logger.warning("Failed to pull")
+            # TODO: filter by reason - up date should pass
+            # raise VaultGitOperationError(
+            #     message="Failed to pull latest changes before batch operation",
+            #     operation="batch_sync_start",
+            # )
 
         self._batch_mode = True
 

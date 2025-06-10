@@ -6,14 +6,18 @@ services:
       context: .
       target: production
     ports:
-      - "127.0.0.1:8000:8000"  # Only expose to localhost, nginx will proxy
+      - "127.0.0.1:8000:8000"
     volumes:
-      - /opt/vault:/vault
+      - /opt/vault:/vault:rw
       - /var/log/obsidian-automation:/app/logs
+      - /home/ubuntu/.ssh/vault_deploy_key:/home/appuser/.ssh/vault_deploy_key:ro
+      - /home/ubuntu/.ssh/config:/home/appuser/.ssh/config:ro
+
     environment:
       - VAULT_PATH=/vault
       - LOG_LEVEL=WARNING
       - ENVIRONMENT=production
+      - HOM=/home/appuser
     restart: always
     deploy:
       resources:
