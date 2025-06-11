@@ -39,13 +39,12 @@ repos:
         args: ["-c", "pyproject.toml"]
         additional_dependencies: ["bandit[toml]"]
 
-  # TODO:
   # Dead code detection
-  # - repo: https://github.com/jendrikseipp/vulture
-  #   rev: v2.10
-  #   hooks:
-  #     - id: vulture
-  #       args: ["--exclude", "*/venv/*,*/.venv/*,*/build/*,*/dist/*", "."]
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.10
+    hooks:
+      - id: vulture
+        args: ["--min-confidence", "70", "--exclude", "*/venv/*,*/.venv/*,*/build/*,*/dist/*", "."]
 
   # Infrastructure (OpenTofu/Terraform)
   - repo: https://github.com/tofuutils/pre-commit-opentofu
