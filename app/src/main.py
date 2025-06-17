@@ -7,11 +7,13 @@ from fastapi import FastAPI
 from app.src.api.routes.v1 import v1_router
 from app.src.core.config import get_settings
 from app.src.core.exceptions.exception_handlers import setup_exception_handlers
+from app.src.core.middleware.auth import AuthenticationMiddleware
+from app.src.core.middleware.ip_rate_limiting import IPRateLimitMiddleware
+from app.src.core.middleware.rate_limiting import PerKeyRateLimitMiddleware
 from app.src.core.middleware.request_tracking import setup_request_tracking_middleware
 
 # TODO:
 # from core.logging import setup_logging
-# from api.middleware.auth import APIKeyMiddleware
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -52,9 +54,10 @@ def create_app() -> FastAPI:
     setup_request_tracking_middleware(app)
     setup_exception_handlers(app)
 
-    # TODO:
-    # app.add_middleware(APIKeyMiddleware)
-
+    # Middleware stack LIFO
+    app.add_middleware(PerKeyRateLimitMiddleware)
+    app.add_middleware(AuthenticationMiddleware)
+    app.add_middleware(IPRateLimitMiddleware)
     app.include_router(v1_router, prefix="/api")
 
     return app
