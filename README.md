@@ -1,14 +1,41 @@
 # Obsidian Task Automation API
+## Project Vision
 
-**Phase 1 Development** - A FastAPI wrapper around existing Obsidian task automation scripts, with file locking and atomic operations for safe concurrent access.
+**Create an automated task management system and personal knowledge archive that simulates a personal assistant.** Built on markdown files, the system leverages proven productivity methodologies (GTD, BASB) and integrates with daily tools (messaging, calendar, email) to help users be more effective and reduce mental load.
 
 ## What This System Does
 
 This API provides programmatic access to your existing Obsidian task automation workflows. It wraps your current task processing logic in REST endpoints, allowing external systems to trigger task operations while preserving data integrity through file locking.
 
-**Current Status**: Core task operations are functional with proper concurrency protection. The system can safely process active and completed tasks, handle task queries, and maintain vault consistency.
+## 🚀 Project Status
 
-**Planned Integration**: Future phases will add WhatsApp bot integration, Google Workspace synchronization, and automated batch processing via GitHub Actions.
+```
+✅ Phase 1 Development - COMPLETED
+   ├── Task processing and querying endpoints
+   ├── File locking and atomic operations
+   ├── Authentication and rate limiting
+   ├── Docker containerization
+   ├── AWS infrastructure as code
+   └── Production deployment pipeline
+
+🔄 Testing Framework and Test Coverage - IN PROGRESS
+   ├── Test environment architecture
+   ├── Mock infrastructure layer
+   ├── Unit and integration test suites
+   └── End-to-end testing framework
+
+📋 Phase 1 Refactoring - NEXT IN LINE
+   ├── Code cleanup and TODO elimination
+   ├── Full CRUD operations implementation
+   ├── Performance optimization
+   └── Security audit and hardening
+
+🔮 Phase 2 - AFTER REFACTOR COMPLETED
+   ├── WhatsApp bot integration
+   ├── Google Workspace synchronization
+   ├── GitHub Actions automation
+   └── Advanced monitoring
+```
 
 ## Architecture Overview
 
@@ -67,48 +94,51 @@ graph TD
     class Client,Vault external
 ```
 
-## Current Implementation Status
+## Implementation Status
 
-**✅ Implemented and Working:**
+**✅ Phase 1 Development (Completed):**
 - Task querying (list all tasks, get specific task)
 - Task processing workflows (active and completed task processing)
 - File locking system preventing concurrent modification conflicts
 - Atomic file operations ensuring data consistency
 - Health check endpoint with vault status verification
-- Docker containerization with development and production configurations
-- AWS infrastructure as code with Terraform
+- API authentication and rate limiting middleware
 - Comprehensive error handling with structured responses
 - Request tracking and logging middleware
+- Docker containerization with development and production configurations
+- AWS infrastructure as code with Terraform
+- Production deployment pipeline via GitHub Actions
+- Security hardening (encrypted volumes, IMDSv2, restricted access)
 
-**🚧 Work in Progress:**
-- API authentication (middleware structure exists, implementation pending)
-- Task creation and update endpoints (CRUD operations)
-- Comprehensive test suite (structure in place, tests not written)
-- Service layer architecture (partial implementation)
+**🔄 Testing Framework and Test Coverage (In Progress):**
+- Test environment architecture design
+- Mock infrastructure layer development
+- Unit test suite implementation
+- Integration test framework setup
 
-**📋 Planned for Future Phases:**
-- WhatsApp bot integration for natural language task creation
-- Google Workspace synchronization (Calendar, Gmail, Docs)
-- GitHub Actions for automated batch processing
-- Advanced monitoring and alerting integrations
-- Enhanced logging configuration
+**📋 Phase 1 Refactoring (Next in Line):**
+- Code cleanup and TODO elimination
+- Full CRUD operations implementation (POST, PUT, DELETE)
+- Performance optimization and monitoring
+- API documentation completion
+- Security audit and hardening
 
 ## API Endpoints
 
-### Currently Implemented
+### Current Implementation
 ```
-GET    /api/v1/tasks              # List all tasks (with optional filtering)
-GET    /api/v1/tasks/{task_id}    # Get specific task details
-POST   /api/v1/tasks/process-active    # Process all active tasks
-POST   /api/v1/tasks/process-completed # Process completed tasks with retention
-GET    /api/v1/health             # Health check with vault status
+GET    /api/v1/tasks/                   # List all tasks (with optional filtering)
+GET    /api/v1/tasks/{task_id}          # Get specific task details
+POST   /api/v1/tasks/process-active     # Process all active tasks
+POST   /api/v1/tasks/process-completed  # Process completed tasks with retention
+GET    /api/v1/health                   # Health check with vault status
 ```
 
-### Planned for Phase 2
+### Planned for Refactoring Phase
 ```
-POST   /api/v1/tasks              # Create new task (TODO)
-PUT    /api/v1/tasks/{task_id}    # Update existing task (TODO)
-DELETE /api/v1/tasks/{task_id}    # Delete task (TODO)
+POST   /api/v1/tasks/             # Create new task
+PUT    /api/v1/tasks/{task_id}    # Update existing task
+DELETE /api/v1/tasks/{task_id}    # Delete task
 ```
 
 Each endpoint returns structured JSON responses with proper HTTP status codes, request tracking IDs, and detailed error information in development mode.
@@ -147,7 +177,7 @@ open http://localhost:8000/docs
 VAULT_PATH=/path/to/obsidian/vault    # Required: Path to your Obsidian vault
 ENVIRONMENT=development               # development | production
 LOG_LEVEL=INFO                       # DEBUG | INFO | WARNING | ERROR
-API_KEY=your-secret-key              # Authentication key for API access
+API_KEYS=key1,key2,key3              # Comma-separated API keys for authentication
 PORT=8000                            # Server port (defaults to 8000)
 ```
 
@@ -162,7 +192,8 @@ retent_for_days: 14                  # Days to retain completed tasks
 
 ## Task Data Model
 
-The system works with markdown files containing YAML frontmatter. Here's the task structure:
+The system works with markdown files containing YAML frontmatter.
+The filename is the also the task title, and the structure is following this example:
 
 ```yaml
 ---
@@ -174,8 +205,6 @@ done: false
 is_high_priority: true
 repeat_task: "0 9 * * 1"  # Cron expression for weekly repeats
 ---
-
-# Task Title
 
 Task description and notes go here. This content becomes the task body.
 
@@ -203,22 +232,21 @@ bandit -r app/src
 
 ### Testing
 ```bash
-# TODO: Tests are not yet implemented
-# Test structure is in place but test files are empty
-# pytest --cov=app/src app/tests/
+# Run test suite (when implementation is complete)
+pytest --cov=app/src app/tests/
 
-# Current test structure:
-# app/tests/unit/      (empty)
-# app/tests/integration/   (empty)
+# Current testing framework development:
+# app/tests/unit/      (framework in development)
+# app/tests/integration/   (framework in development)
 ```
 
 ### Infrastructure Management
 ```bash
 # Deploy to production
 cd infrastructure/terraform/environments/prod
-terraform init
-terraform plan
-terraform apply
+tofu init
+tofu plan
+tofu apply
 
 # Validate infrastructure changes
 cd infrastructure/terraform
@@ -236,13 +264,16 @@ The included Terraform configuration provides:
 
 ### Deployment Process
 ```bash
-# Build and deploy container
+# Automated deployment via GitHub Actions
+git push origin main
+
+# Manual deployment
 docker build -t obsidian-automation .
 docker tag obsidian-automation:latest your-registry/obsidian-automation:latest
 docker push your-registry/obsidian-automation:latest
 
 # Deploy infrastructure
-terraform apply -var-file="terraform.tfvars"
+tofu apply -var-file="terraform.tfvars"
 
 # Verify deployment
 curl https://your-domain/api/v1/health
@@ -264,57 +295,45 @@ The system implements comprehensive concurrency protection:
 
 The architecture is designed for easy extension with external systems:
 
-**📋 Planned Integrations (Future Phases):**
-- **WhatsApp Integration:** Natural language task creation via webhook endpoints that parse messages and create properly formatted tasks
-- **Google Workspace:** Sync with Google Calendar for due dates, Gmail for task creation from emails, and Google Docs for project documentation
-- **Custom Workflows:** The current REST API enables integration with any system that can make HTTP requests
-
 **✅ Current Integration Points:**
 - REST API for programmatic task management
 - Docker containers for easy deployment
 - Git-based vault storage for version control integration
+- AWS cloud infrastructure integration
 
-## Security Considerations
+**📋 Planned Integrations (Phase 2):**
+- **WhatsApp Integration:** Natural language task creation via webhook endpoints
+- **Google Workspace:** Sync with Google Calendar for due dates, Gmail for task creation from emails
+- **Custom Workflows:** Enhanced automation via GitHub Actions and external webhooks
 
-**🚧 Currently Implemented:**
+## Security Features
+
+**✅ Implemented Security:**
+- API key-based authentication with rate limiting
 - Input validation through Pydantic models prevents injection attacks
 - File system access restricted to configured vault directory
 - Application runs with minimal privileges in Docker containers
-- Network security via AWS security groups (production deployment)
+- Network security via AWS security groups and VPC isolation
+- Encrypted storage and secure secret management
 
-**📋 Authentication (TODO):**
-- API key-based authentication planned but not yet implemented
-- Middleware structure exists in codebase but needs activation
-- Currently operates without authentication (development only)
+**🔄 Security Hardening (Backlog):**
+- Security audit and penetration testing
+- Enhanced logging and monitoring
+- Secrets rotation automation
 
 ## Monitoring and Observability
 
-**✅ Currently Implemented:**
+**✅ Current Monitoring:**
 - Health endpoints verify vault accessibility, file system status, and Git repository integrity
 - Request tracking with unique identifiers flowing through all log messages
 - Structured logging framework with contextual information
-- Basic error handling and exception translation
+- Comprehensive error handling and exception translation
 
-**🚧 Monitoring Hooks (Partial):**
-- Alert system structure exists but integrations not configured
-- CloudWatch integration planned for production deployment
-- Error alerting framework ready but needs service connections
-
-**📋 TODO - External Integrations:**
+**📋 Enhanced Monitoring (Phase 2):**
+- CloudWatch integration for production metrics
 - Slack/email alert integrations
 - Advanced monitoring dashboards
-- Performance metrics collection
-- Distributed tracing capabilities
-
-## Contributing
-
-**Code Standards:** The project uses pre-commit hooks for automated code quality checks including formatting, linting, type checking, and security scanning.
-
-**Architecture Decisions:** Significant changes should follow the established clean architecture patterns with clear separation between API, domain, and infrastructure concerns.
-
-**Testing Requirements:** New features require both unit tests for business logic and integration tests for API endpoints.
-
-**Documentation:** Update relevant documentation including API schemas, configuration examples, and architectural decision records.
+- Performance metrics collection and alerting
 
 ## License
 
@@ -329,3 +348,5 @@ MIT License - See [LICENSE](LICENSE) for details.
 **Lock Timeout Errors:** If you see concurrency errors, check for processes that might be holding file locks or increase the timeout settings.
 
 **Git Integration Problems:** Ensure the vault directory is a valid Git repository with proper remote configuration if you need Git synchronization features.
+
+**Authentication Issues:** Verify API keys are properly configured in environment variables or AWS Secrets Manager for production deployments.
