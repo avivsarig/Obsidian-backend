@@ -5,13 +5,17 @@ import uvicorn
 from fastapi import FastAPI
 
 from app.src.api.routes.v1 import v1_router
+from app.src.core.auth.api_key_service import APIKeyService
 from app.src.core.config import get_settings
 from app.src.core.exceptions.exception_handlers import setup_exception_handlers
+from app.src.core.middleware.auth import AuthenticationMiddleware
+from app.src.core.middleware.ip_rate_limiting import IPRateLimitMiddleware
+from app.src.core.middleware.rate_limiting import PerKeyRateLimitMiddleware
 from app.src.core.middleware.request_tracking import setup_request_tracking_middleware
+from app.src.core.security.secrets_manager import SecretsManager
 
 # TODO:
 # from core.logging import setup_logging
-# from api.middleware.auth import APIKeyMiddleware
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -52,8 +56,17 @@ def create_app() -> FastAPI:
     setup_request_tracking_middleware(app)
     setup_exception_handlers(app)
 
-    # TODO:
-    # app.add_middleware(APIKeyMiddleware)
+    secrets_manager = SecretsManager()
+    api_key_service = APIKeyService(secrets_manager)
+
+    # Middleware stack LIFO
+    if settings.rate_limit_enabled:
+        app.add_middleware(PerKeyRateLimitMiddleware)
+
+    if settings.require_auth:
+        app.add_middleware(AuthenticationMiddleware, api_key_service=api_key_service)
+
+    app.add_middleware(IPRateLimitMiddleware)
 
     app.include_router(v1_router, prefix="/api")
 
@@ -68,5 +81,6 @@ if __name__ == "__main__":
         host="0.0.0.0",  # nosec B104 # noqa: S104
         port=8000,
         reload=True,
-        log_level="info",
+        # log_level="info",
+        log_level="debug",
     )

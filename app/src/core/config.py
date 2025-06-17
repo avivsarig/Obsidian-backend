@@ -1,9 +1,9 @@
 import os
 import tempfile
 from pathlib import Path
-from typing import List
 
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -11,17 +11,36 @@ class Settings(BaseSettings):
     debug: bool = False
     log_level: str = "INFO"
 
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+    )
+
+    # TODO: check if need to remove?
     api_key: str = "dev-key-change-in-production"
-    allowed_origins: List[str] = ["http://localhost:3000"]
+    api_keys_str: str = Field(default="", alias="API_KEYS")
+    aws_secrets_manager_key_name: str = ""
+    require_auth: bool = True
+
+    rate_limit_enabled: bool = True
+    rate_limit_requests_per_minute: int = 100
+
+    allowed_origins: list[str] = ["http://localhost:3000"]
 
     vault_path: Path | None = None
     git_repo_url: str = ""
 
     port: int = 8000
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    @property
+    def api_keys(self) -> list[str]:
+        if not self.api_keys_str:
+            return []
+        return [key.strip() for key in self.api_keys_str.split(",") if key.strip()]
+
+    # class Config:
+    #     env_file = ".env"
+    #     env_file_encoding = "utf-8"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

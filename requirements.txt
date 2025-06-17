@@ -6,3 +6,4 @@ python-frontmatter
 croniter
 uvicorn
 GitPython>=3.1.40
+boto3
