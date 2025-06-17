@@ -18,6 +18,7 @@ services:
       - LOG_LEVEL=WARNING
       - ENVIRONMENT=production
       - HOM=/home/appuser
+      - AWS_SECRETS_MANAGER_KEY_NAME=obsidian-automation/api-keys
     restart: always
     deploy:
       resources:

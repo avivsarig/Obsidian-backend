@@ -157,12 +157,18 @@ class GitManager:
 
         pull_success = self.pull_latest()
         if not pull_success:
-            logger.warning("Failed to pull")
-            # TODO: filter by reason - up date should pass
-            # raise VaultGitOperationError(
-            #     message="Failed to pull latest changes before batch operation",
-            #     operation="batch_sync_start",
-            # )
+            repo = self.repo
+            if repo.is_dirty():
+                logger.info(
+                    "Repository has uncommitted changes, "
+                    "proceeding with batch operation"
+                )
+            elif not repo.remotes:
+                logger.info(
+                    "No remote configured, proceeding with local batch operation"
+                )
+            else:
+                logger.warning("Failed to pull latest changes, proceeding anyway")
 
         self._batch_mode = True
 

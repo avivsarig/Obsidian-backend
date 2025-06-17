@@ -18,6 +18,7 @@ services:
       - LOG_LEVEL=WARNING
       - ENVIRONMENT=production
       - HOM=/home/appuser
+      - REQUIRE_AUTH=false
     restart: always
     deploy:
       resources:
