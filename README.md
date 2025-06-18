@@ -132,6 +132,7 @@ GET    /api/v1/tasks/{task_id}          # Get specific task details
 POST   /api/v1/tasks/process-active     # Process all active tasks
 POST   /api/v1/tasks/process-completed  # Process completed tasks with retention
 GET    /api/v1/health                   # Health check with vault status
+POST   /api/v1/vault/pull               # Pull latest changes from git repository
 ```
 
 ### Planned for Refactoring Phase
