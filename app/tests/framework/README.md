@@ -2,257 +2,388 @@
 
 ## Overview
 
-The testing framework provides infrastructure for comprehensive testing of the Obsidian Task Automation API. It creates isolated test environments, manages test data, and provides domain-specific assertions for reliable test execution.
+The testing framework provides comprehensive infrastructure for testing the Obsidian Task Automation API. It uses pytest fixtures, builder patterns, and specialized assertion classes to create maintainable and reliable tests.
 
 ## Architecture
 
-The framework consists of five core components that work together to enable different testing scenarios:
+The framework is organized into focused modules that support different testing needs:
 
-**Test Environment Management** (`environment.py`): Creates isolated vault environments with configurable profiles, optional git integration, and data seeding capabilities.
+**Assertions** (`assertions/`): Domain-specific assertion classes that provide detailed error messages for API responses, domain objects, and vault operations.
 
-**Configuration Management** (`config.py`): Manages test-specific settings with environment profiles and setting overrides for different test scenarios.
+**Builders** (`builders/`): Builder pattern implementations for constructing test data with fluent APIs and sensible defaults.
 
-**Execution Context** (`context.py`): Tracks test execution state, performance metrics, and operation traces using thread-safe context variables.
+**Infrastructure** (`infrastructure/`): Core testing infrastructure including environment management, performance tracking, API clients, and mock factories.
 
-**Domain Assertions** (`assertions.py`): Provides specialized assertion functions for TaskItem, ArchiveItem, and vault file operations with detailed error reporting.
+**Fixtures** (`fixtures/`): Pytest fixtures organized by purpose (environment, API, services, data) for easy test setup.
 
-**Test Utilities** (`test_helpers.py`): Offers helper functions for time manipulation, state management, test data creation, and condition waiting.
+**Scenarios** (`scenarios/`): Pre-built error scenarios for testing failure conditions and edge cases.
 
-## Component Details
+**Utils** (`utils/`): Utility functions for common testing operations like time manipulation and condition waiting.
 
-### Environment Management
+## Quick Start
 
-The `TestEnvironmentManager` creates isolated test environments to prevent test interference:
-
-```python
-from app.tests.framework import test_environment
-
-# Create isolated environment with automatic cleanup
-with test_environment.isolated_environment(profile_name="unit") as (vault_path, settings):
-    # Test code runs in completely isolated vault
-    vault_manager = VaultManager(vault_path)
-    # Changes are automatically cleaned up after test
-```
-
-**Environment Profiles**: Three predefined profiles optimize for different test types:
-- `unit`: Minimal setup with authentication disabled
-- `integration`: Full vault with authentication and rate limiting enabled
-- `e2e`: Complete environment for end-to-end testing
-
-**Git Integration**: Optional git repository initialization for testing version control workflows:
+### Basic Test Setup
 
 ```python
-with test_environment.isolated_environment(with_git=True) as (vault_path, settings):
-    git_manager = TestContext.get_metadata("git_manager")
-    # Git operations work normally within test environment
+def test_task_creation(vault_env, sample_task):
+    from app.src.infrastructure.vault_manager import VaultManager
+    from app.tests.framework import VaultAssertions, DomainAssertions
+
+    vault_manager = VaultManager(vault_env.vault_path)
+    vault_manager.write_note(sample_task, "Tasks")
+
+    VaultAssertions.assert_file_exists(vault_env.vault_path, "Tasks/Sample Task.md")
+
+    read_task = vault_manager.read_note(vault_env.vault_path / "Tasks" / "Sample Task.md", TaskItem)
+    DomainAssertions.assert_task_equal(read_task, sample_task)
 ```
 
-**Data Seeding**: Pre-populate vaults with structured test data:
+### API Testing
 
 ```python
-seed_data = {
-    "Tasks": {
-        "Sample Task": {
-            "frontmatter": {"done": False, "do_date": "2025-06-18"},
-            "content": "Task description"
-        }
-    }
-}
+def test_task_endpoint(api_client, populated_vault):
+    from app.tests.framework import APIAssertions
 
-with test_environment.isolated_environment(seed_data=seed_data) as (vault_path, settings):
-    # Vault contains pre-created files
-```
-
-### Configuration Management
-
-The `TestConfigManager` handles environment-specific configurations:
-
-```python
-from app.tests.framework import test_config
-
-# Override specific settings for test
-with test_config.override_settings(vault_path="/tmp/test", require_auth=False) as settings:
-    # Settings object has overridden values
-    assert settings.require_auth == False
-```
-
-**Feature Toggles**: Enable or disable features during testing:
-
-```python
-test_config.enable_feature_toggle("experimental_feature")
-if test_config.is_feature_enabled("experimental_feature"):
-    # Feature-specific test logic
-```
-
-### Execution Context
-
-The `TestContext` tracks test execution state and performance:
-
-```python
-from app.tests.framework import TestContext
-
-# Create new test context with metadata
-TestContext.new_context(test_name="integration_test", component="task_processor")
-
-# Track operations and performance
-TestContext.add_trace("Starting task processing")
-TestContext.track_performance_metric("processing_time", 150.5, "ms")
-
-# Retrieve execution information
-trace = TestContext.get_request_trace()
-metrics = TestContext.get_performance_metrics()
-```
-
-The context uses `contextvars` for thread safety, ensuring each test maintains independent execution state.
-
-### Domain Assertions
-
-Specialized assertions provide detailed error messages for domain objects:
-
-```python
-from app.tests.framework import assert_task_equal, assert_vault_file_exists
-
-# Compare TaskItem objects with comprehensive field validation
-expected_task = create_test_task(title="Test Task", done=True)
-actual_task = vault_manager.read_note(task_path, TaskItem)
-assert_task_equal(actual_task, expected_task)
-
-# Verify vault file operations
-assert_vault_file_exists(vault_path, "Tasks/Test Task.md")
-assert_vault_file_contains(vault_path, "Tasks/Test Task.md", "expected content")
-```
-
-**Error Reporting**: Assertions provide structured error messages showing exactly which fields differ:
-
-```
-TaskItem mismatch for 'Test Task':
-  • done: got False, expected True
-  • do_date: got '2025-06-19', expected '2025-06-18'
-```
-
-### Test Utilities
-
-Helper functions simplify common testing operations:
-
-```python
-from app.tests.framework import freeze_time, capture_vault_state, create_test_task
-
-# Time manipulation for date-dependent logic
-with freeze_time(datetime(2025, 6, 18, 14, 30)):
-    # All datetime.now() calls return frozen time
-    task_processor.process_active_task(task)
-
-# State management for rollback testing
-snapshot = capture_vault_state(vault_path)
-# Make changes that should be reverted
-restore_vault_state(vault_path, snapshot)
-
-# Create test data with sensible defaults
-task = create_test_task(title="Integration Test", done=False)
-```
-
-## Usage Patterns
-
-### Unit Testing
-
-Unit tests use minimal environment setup with mocked dependencies:
-
-```python
-def test_task_date_normalization():
-    with test_environment.isolated_environment(profile_name="unit") as (vault_path, settings):
-        vault_manager = VaultManager(vault_path)
-
-        task = create_test_task(do_date="2025-06-18")
-        vault_manager.write_note(task, "Tasks")
-
-        read_task = vault_manager.read_note(vault_path / "Tasks" / "test-task.md", TaskItem)
-        assert str(read_task.do_date).startswith("2025-06-18")
-```
-
-### Integration Testing
-
-Integration tests use full environment with real service interactions:
-
-```python
-def test_task_processing_workflow():
-    with test_environment.isolated_environment(profile_name="integration", with_git=True) as (vault_path, settings):
-        vault_manager = VaultManager(vault_path)
-        task_processor = TaskProcessor()
-
-        # Create and process task through complete workflow
-        task = create_test_task(title="Integration Task", done=True)
-        vault_manager.write_note(task, "Tasks")
-
-        task_processor.process_active_task(vault_manager, task, config)
-
-        # Verify task moved to completed folder
-        assert_vault_file_exists(vault_path, "Tasks/Completed/Integration Task.md")
+    response = api_client.get("/api/v1/tasks/")
+    APIAssertions.assert_success(response)
+    APIAssertions.assert_task_list_response(response, expected_count=3)
 ```
 
 ### Performance Testing
 
-Performance tests track metrics and validate timing requirements:
+```python
+def test_bulk_operations(vault_env, perf):
+    with perf.measure("bulk_write", threshold=500):
+        # Perform operations
+        for i in range(100):
+            task = TaskBuilder().with_title(f"Task {i}").build()
+            vault_manager.write_note(task, "Tasks")
+
+    perf.assert_under_threshold("bulk_write", 500)
+```
+
+## Component Details
+
+### Assertions
+
+Three specialized assertion classes provide detailed error messages:
+
+**APIAssertions**: Validates HTTP responses and API contracts
+```python
+APIAssertions.assert_success(response, expected_status=200)
+APIAssertions.assert_error(response, 404, "Task not found")
+APIAssertions.assert_task_response(response, {"title": "Test Task", "done": False})
+```
+
+**DomainAssertions**: Compares domain objects with detailed field-level reporting
+```python
+DomainAssertions.assert_task_equal(actual_task, expected_task)
+DomainAssertions.assert_archive_equal(actual_archive, expected_archive)
+```
+
+**VaultAssertions**: Validates vault file operations and structure
+```python
+VaultAssertions.assert_file_exists(vault_path, "Tasks/task.md")
+VaultAssertions.assert_file_contains(vault_path, "Tasks/task.md", "expected content")
+VaultAssertions.assert_vault_structure(vault_path)
+```
+
+### Builders
+
+Builder pattern implementations create test data with fluent APIs:
+
+**TaskBuilder**: Constructs TaskItem objects with method chaining
+```python
+task = (TaskBuilder()
+    .with_title("Important Task")
+    .with_content("Task description")
+    .as_project()
+    .with_due_date("2025-06-25")
+    .with_repeat("0 9 * * 1")
+    .build())
+```
+
+**VaultBuilder**: Populates vault environments with structured data
+```python
+(VaultBuilder(vault_env)
+    .with_task("Daily Review", done=False, do_date="2025-06-18")
+    .with_completed_task("Old Task", done=True, completed_at="2025-06-10T15:00:00")
+    .with_archive("Project Notes", content="Archived project information")
+    .build())
+```
+
+**ArchiveBuilder**: Creates ArchiveItem objects with proper metadata
+```python
+archive = (ArchiveBuilder()
+    .with_title("Research Notes")
+    .with_content("Research findings")
+    .with_tags(["research", "important"])
+    .with_url("https://example.com")
+    .build())
+```
+
+### Infrastructure
+
+Core infrastructure components provide testing foundations:
+
+**EnvironmentFactory**: Creates isolated vault environments
+```python
+with EnvironmentFactory.create_isolated("unit") as vault_env:
+    # Test runs in completely isolated environment
+    # Automatic cleanup after test completion
+```
+
+**APIClient**: Provides HTTP client with authentication support
+```python
+# Unauthenticated client
+client = APIClient(vault_env)
+
+# Authenticated client
+auth_client = APIClient(vault_env, api_key="test-key-123")
+response = auth_client.get("/api/v1/tasks/")
+```
+
+**PerformanceTracker**: Measures and validates performance metrics
+```python
+tracker = PerformanceTracker()
+with tracker.measure("operation_name", threshold=100):
+    # Perform timed operation
+
+tracker.assert_under_threshold("operation_name", 100)
+```
+
+**MockFactory**: Creates and manages service mocks
+```python
+with MockFactory.mock_services() as mocks:
+    mocks["vault_manager"].get_notes.return_value = test_tasks
+    # Test with mocked dependencies
+```
+
+### Fixtures
+
+Pytest fixtures provide ready-to-use test components:
+
+**Environment Fixtures** (`fixtures/environment_fixtures.py`):
+- `vault_env`: Isolated vault environment
+- `integration_env`: Environment with authentication enabled
+- `populated_vault`: Vault pre-populated with test data
+
+**API Fixtures** (`fixtures/api_fixtures.py`):
+- `api_client`: Unauthenticated API client
+- `authenticated_client`: API client with test credentials
+
+**Data Fixtures** (`fixtures/data_fixtures.py`):
+- `sample_task`: Basic task for testing
+- `completed_task`: Task marked as completed
+- `project_task`: Task configured as project
+- `sample_archive`: Archive item for testing
+
+**Service Fixtures** (`fixtures/service_fixtures.py`):
+- `mock_services`: Complete set of mocked services
+- `performance_tracker`: Performance measurement tools
+- `mock_vault_manager`: Isolated vault manager mock
+
+### Error Scenarios
+
+Pre-built scenarios test failure conditions:
 
 ```python
-def test_concurrent_file_operations():
-    TestContext.new_context(test_type="performance")
+def test_permission_error(vault_env, error_scenarios):
+    with error_scenarios.vault_permission_error():
+        # Test behavior when vault write fails
 
-    with test_environment.isolated_environment() as (vault_path, settings):
-        start_time = time.time()
+def test_network_failure(api_client, error_scenarios):
+    with error_scenarios.network_timeout():
+        # Test API behavior during network issues
+```
 
-        # Execute concurrent operations
-        tasks = [create_test_task(title=f"Task {i}") for i in range(100)]
+Available scenarios:
+- `vault_permission_error()`: Simulates file permission failures
+- `disk_full_error()`: Simulates storage exhaustion
+- `git_operation_error()`: Simulates Git operation failures
+- `network_timeout()`: Simulates network connectivity issues
+
+## Testing Patterns
+
+### Unit Testing
+
+Unit tests use minimal fixtures and focus on isolated components:
+
+```python
+def test_task_date_normalization(sample_task):
+    from app.src.domain.date_service import get_date_service
+
+    date_service = get_date_service()
+    normalized = date_service.normalize_for_field("2025-06-18", "do_date")
+
+    assert str(normalized).startswith("2025-06-18")
+```
+
+### Integration Testing
+
+Integration tests use real components with mocked external dependencies:
+
+```python
+def test_task_processing_workflow(integration_env, sample_task):
+    vault_manager = VaultManager(integration_env.vault_path)
+    task_processor = TaskProcessor()
+
+    vault_manager.write_note(sample_task, "Tasks")
+    task_processor.process_active_task(vault_manager, sample_task, config)
+
+    VaultAssertions.assert_file_exists(integration_env.vault_path, "Tasks/Sample Task.md")
+```
+
+### API Testing
+
+API tests validate endpoints and response formats:
+
+```python
+def test_task_list_endpoint(authenticated_client, populated_vault):
+    response = authenticated_client.get("/api/v1/tasks/")
+
+    APIAssertions.assert_success(response)
+    APIAssertions.assert_task_list_response(response)
+
+    data = response.json()
+    assert data["total"] > 0
+    assert "tasks" in data
+```
+
+### Performance Testing
+
+Performance tests measure and validate timing requirements:
+
+```python
+@pytest.mark.performance
+def test_concurrent_file_operations(vault_env, perf):
+    vault_manager = VaultManager(vault_env.vault_path)
+
+    with perf.measure("concurrent_writes", threshold=1000):
+        tasks = [TaskBuilder().with_title(f"Task {i}").build() for i in range(50)]
         for task in tasks:
             vault_manager.write_note(task, "Tasks")
 
-        elapsed = (time.time() - start_time) * 1000
-        TestContext.track_performance_metric("batch_write_time", elapsed, "ms")
+    perf.assert_under_threshold("concurrent_writes", 1000)
+```
 
-        # Validate performance requirements
-        metrics = TestContext.get_performance_metrics()
-        batch_time = next(m for m in metrics if m.name == "batch_write_time")
-        assert batch_time.value < 5000  # Under 5 seconds
+## Configuration
+
+### Test Profiles
+
+The framework supports different testing profiles via `tests_config.py`:
+
+- **unit**: Minimal setup, high mocking, no authentication
+- **integration**: Real vault operations, medium mocking, authentication enabled
+- **e2e**: Full stack testing, minimal mocking, all features enabled
+
+### Performance Thresholds
+
+Performance standards are defined in `tests_config.py`:
+
+```python
+PERFORMANCE_THRESHOLDS = {
+    "vault_operations": {"max_time_ms": 500},
+    "api_requests": {"max_time_ms": 1000},
+    "file_operations": {"max_time_ms": 200},
+}
+```
+
+### Test Data Templates
+
+Standardized test data is available for consistent testing:
+
+```python
+# Use predefined templates
+task_data = TestStandards.get_seed_data("realistic")
+
+# Validate API coverage
+coverage = TestStandards.validate_api_coverage(router_analysis)
+```
+
+## Running Tests
+
+### Basic Test Execution
+
+```bash
+# Run all tests
+pytest app/tests/
+
+# Run specific test types
+pytest app/tests/ -m unit
+pytest app/tests/ -m integration
+pytest app/tests/ -m performance
+
+# Run with coverage
+pytest app/tests/ --cov=app/src --cov-report=term-missing
+```
+
+### Test Markers
+
+Tests are automatically marked based on their location and naming:
+
+- `@pytest.mark.unit`: Unit tests (automatic)
+- `@pytest.mark.integration`: Integration tests (automatic)
+- `@pytest.mark.performance`: Performance tests (automatic)
+- `@pytest.mark.slow`: Long-running tests (manual)
+
+### Debugging Failed Tests
+
+The framework captures test metadata for debugging:
+
+```bash
+# Run with verbose output
+pytest app/tests/ -v
+
+# Capture performance metrics
+pytest app/tests/ -s  # Shows performance output
+
+# Run single test with full output
+pytest app/tests/unit/test_specific.py::test_function -v -s
 ```
 
 ## File Structure
 
 ```
 app/tests/framework/
-├── __init__.py                    # Framework exports
-├── assertions.py                  # Domain-specific assertions
-├── config.py                      # Configuration management
-├── context.py                     # Execution context tracking
-├── environment.py                 # Test environment management
-├── test_helpers.py               # Utility functions
+├── assertions/
+│   ├── api_assertions.py         # HTTP response validation
+│   ├── domain_assertions.py      # Domain object comparison
+│   └── vault_assertions.py       # File system validation
+├── builders/
+│   ├── archive_builder.py        # ArchiveItem construction
+│   ├── task_builder.py          # TaskItem construction
+│   └── vault_builder.py         # Vault population
+├── fixtures/
+│   ├── api_fixtures.py          # API client fixtures
+│   ├── data_fixtures.py         # Test data fixtures
+│   ├── environment_fixtures.py  # Environment setup
+│   └── service_fixtures.py      # Service mocks
+├── infrastructure/
+│   ├── api_client.py            # HTTP client wrapper
+│   ├── context.py               # Test execution context
+│   ├── environment.py           # Environment management
+│   ├── mock_factory.py          # Mock service creation
+│   └── performance.py           # Performance measurement
+├── scenarios/
+│   └── error_scenarios.py       # Error condition simulation
+├── utils/
+│   └── test_helpers.py          # Utility functions
 └── test_framework_verification.py # Framework self-tests
 ```
 
-## Framework Verification
-
-The framework includes self-verification tests to ensure all components function correctly:
-
-```bash
-python app/tests/framework/test_framework_verification.py
-```
-
-These tests verify:
-- Environment isolation and cleanup
-- Configuration override mechanisms
-- Context tracking and performance metrics
-- State snapshot and restoration
-- Git integration functionality
-- Data seeding capabilities
-
 ## Best Practices
 
-**Environment Isolation**: Always use isolated environments to prevent test interference. The framework automatically creates temporary directories and cleans them up after test completion.
+**Use Appropriate Fixtures**: Choose fixtures that match your test scope. Use `vault_env` for unit tests, `integration_env` for integration tests.
 
-**Context Usage**: Leverage test context for debugging failed tests. The execution trace shows exactly which operations occurred and their timing.
+**Leverage Builders**: Use builder pattern for creating test data. It provides better readability and maintainability than manual object construction.
 
-**State Management**: Use state snapshots for tests that need to verify rollback behavior or test multiple scenarios from the same starting point.
+**Validate with Assertions**: Use specialized assertion classes instead of generic asserts. They provide better error messages and understand domain semantics.
 
-**Performance Tracking**: Track performance metrics for operations that have timing requirements. The framework provides structured metric collection for analysis.
+**Measure Performance**: Use the performance tracker for operations with timing requirements. Set appropriate thresholds based on `tests_config.py`.
 
-**Domain Assertions**: Use specialized assertions instead of generic asserts. They provide better error messages and understand domain object semantics.
+**Mock Appropriately**: Use `MockFactory` for external dependencies. Keep mocking minimal in integration tests to verify real component interactions.
 
-The framework handles resource cleanup automatically, but complex tests should verify cleanup occurs properly to prevent resource leaks in test suites.
+**Clean Up Resources**: Fixtures handle cleanup automatically, but complex tests should verify proper resource cleanup.
+
+The framework handles environment isolation, resource cleanup, and test data management automatically, allowing tests to focus on business logic verification rather than infrastructure concerns.

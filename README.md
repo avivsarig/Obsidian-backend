@@ -237,17 +237,29 @@ bandit -r app/src
 ### Testing
 ```bash
 # Run test suite with coverage
-pytest --cov=app/src app/tests/
+pytest app/tests/ --cov=app/src --cov-report=term-missing
 
 # Run specific test types
-pytest app/tests/unit/           # Unit tests only
-pytest app/tests/integration/    # Integration tests only
+pytest app/tests/ -m unit          # Unit tests only
+pytest app/tests/ -m integration   # Integration tests only
+pytest app/tests/ -m performance   # Performance tests only
+
+# Run tests with verbose output
+pytest app/tests/ -v
 
 # Verify testing framework
 python app/tests/framework/test_framework_verification.py
 ```
 
-The testing framework provides isolated environments, domain-specific assertions, and performance tracking. See `app/tests/framework/README.md` for detailed framework documentation.
+The testing framework uses pytest with specialized fixtures, builder patterns, and domain-specific assertions. It provides isolated test environments, performance tracking, and comprehensive mocking capabilities. Tests are automatically marked by type and location. See `app/tests/framework/README.md` for detailed framework documentation.
+
+Key testing features:
+- **Isolated Environments**: Each test runs in a completely isolated vault with automatic cleanup
+- **Builder Pattern**: Fluent APIs for creating test data (`TaskBuilder`, `VaultBuilder`, `ArchiveBuilder`)
+- **Specialized Assertions**: Domain-specific assertions for API responses, vault operations, and domain objects
+- **Performance Tracking**: Built-in performance measurement with configurable thresholds
+- **Fixture Organization**: Pytest fixtures organized by purpose (environment, API, services, data)
+- **Error Scenarios**: Pre-built failure scenarios for testing edge cases and error handling
 
 ### Infrastructure Management
 ```bash

@@ -19,7 +19,7 @@ class TestProfile(BaseModel):
 
 
 class TestConfigManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self._test_profiles: dict[str, TestProfile] = {}
         self._feature_toggles: dict[str, bool] = {}
 

@@ -1,49 +1,32 @@
-from .assertions import (
-    assert_archive_equal,
-    assert_task_equal,
-    assert_vault_file_contains,
-    assert_vault_file_exists,
-    assert_vault_file_not_exists,
-)
-from .config import TestConfigManager, TestProfile, test_config
-from .context import PerformanceMetric, TestContext, TestExecutionContext
-from .environment import TestEnvironmentManager, test_environment
-from .test_helpers import (
-    StateSnapshot,
-    capture_vault_state,
-    count_vault_files,
-    create_test_archive,
-    create_test_task,
-    freeze_time,
-    restore_vault_state,
-    wait_for_condition,
-)
+from .assertions.api_assertions import APIAssertions
+from .assertions.domain_assertions import DomainAssertions
+from .assertions.vault_assertions import VaultAssertions
+from .builders.archive_builder import ArchiveBuilder
+from .builders.task_builder import TaskBuilder
+from .builders.vault_builder import VaultBuilder
+from .infrastructure.api_client import APIClient
+from .infrastructure.environment import EnvironmentFactory
+from .infrastructure.mock_factory import MockFactory
+from .infrastructure.performance import PerformanceTracker
+from .scenarios.error_scenarios import ErrorScenarios
+from .utils.test_helpers import freeze_time, wait_for_condition
 
 __all__ = [
     # Assertions
-    "assert_task_equal",
-    "assert_archive_equal",
-    "assert_vault_file_exists",
-    "assert_vault_file_not_exists",
-    "assert_vault_file_contains",
-    # Configuration
-    "test_config",
-    "TestConfigManager",
-    "TestProfile",
-    # Context
-    "TestContext",
-    "TestExecutionContext",
-    "PerformanceMetric",
-    # Environment
-    "test_environment",
-    "TestEnvironmentManager",
-    # Helpers
+    "APIAssertions",
+    "DomainAssertions",
+    "VaultAssertions",
+    # Builders
+    "TaskBuilder",
+    "VaultBuilder",
+    "ArchiveBuilder",
+    # Infrastructure
+    "APIClient",
+    "EnvironmentFactory",
+    "MockFactory",
+    "PerformanceTracker",
+    # Utilities
     "freeze_time",
-    "capture_vault_state",
-    "restore_vault_state",
-    "create_test_task",
-    "create_test_archive",
-    "count_vault_files",
     "wait_for_condition",
-    "StateSnapshot",
+    "ErrorScenarios",
 ]
