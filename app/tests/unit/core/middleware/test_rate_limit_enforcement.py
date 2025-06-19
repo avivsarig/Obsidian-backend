@@ -1,7 +1,5 @@
 import asyncio
 import time
-
-# TODO: change to pytest?
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

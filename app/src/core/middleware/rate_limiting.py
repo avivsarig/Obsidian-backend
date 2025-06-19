@@ -35,7 +35,9 @@ class PerKeyRateLimitMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Response],
     ) -> Response:
-        # TODO: consider better handling
+        if not hasattr(request.state, "api_key") or not request.state.api_key:
+            logger.debug("Request missing API key, skipping rate limit")
+            return await call_next(request)
         if (
             not hasattr(request.state, "authenticated")
             or not request.state.authenticated

@@ -159,6 +159,22 @@ with MockFactory.mock_services() as mocks:
     # Test with mocked dependencies
 ```
 
+**Git Mocking Utilities**: Specialized mocks for Git repository testing scenarios
+```python
+# Mock Git repository unavailable (ImportError simulation)
+with mock_git_unavailable():
+    # Test behavior when git module is not installed
+
+# Mock functional Git repository
+with mock_git_repo() as repo_mock:
+    repo_mock.head.is_valid.return_value = True
+    # Test with working git repository
+
+# Mock Git repository errors
+with mock_git_repo_error(Exception("Repository corrupted")):
+    # Test error handling for git operations
+```
+
 ### Fixtures
 
 Pytest fixtures provide ready-to-use test components:

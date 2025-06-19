@@ -6,6 +6,11 @@ from .builders.task_builder import TaskBuilder
 from .builders.vault_builder import VaultBuilder
 from .infrastructure.api_client import APIClient
 from .infrastructure.environment import EnvironmentFactory
+from .infrastructure.git_mocks import (
+    mock_git_repo,
+    mock_git_repo_error,
+    mock_git_unavailable,
+)
 from .infrastructure.mock_factory import MockFactory
 from .infrastructure.performance import PerformanceTracker
 from .scenarios.error_scenarios import ErrorScenarios
@@ -25,6 +30,9 @@ __all__ = [
     "EnvironmentFactory",
     "MockFactory",
     "PerformanceTracker",
+    "mock_git_repo",
+    "mock_git_repo_error",
+    "mock_git_unavailable",
     # Utilities
     "freeze_time",
     "wait_for_condition",
