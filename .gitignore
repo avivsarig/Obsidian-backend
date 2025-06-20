@@ -67,6 +67,7 @@ deployment-package/
 local/
 tmp/
 temp/
+CLAUDE.md
 
 # Configuration overrides
 config.local.yaml
