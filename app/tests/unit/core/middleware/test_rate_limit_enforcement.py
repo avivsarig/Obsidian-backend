@@ -53,8 +53,8 @@ async def test_rate_limiting_comprehensive():
     for i in range(requests_per_minute):
         response = await middleware.dispatch(auth_request, call_next)
         responses.append(response)
-        print(f"  Request {i+1}: Status {getattr(response, 'status_code', 'N/A')}")
-        assert response == success_response, f"Request {i+1} should succeed"
+        print(f"  Request {i + 1}: Status {getattr(response, 'status_code', 'N/A')}")
+        assert response == success_response, f"Request {i + 1} should succeed"
 
     print(f"✓ All {requests_per_minute} requests within limit succeeded")
 

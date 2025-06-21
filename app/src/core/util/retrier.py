@@ -36,7 +36,9 @@ class Retrier:
                     self.base_delay * (2**attempt),
                     self.max_delay,
                 )
-                logger.debug(f"Attempt {attempt+1} failed, retrying in {delay} seconds")
+                logger.debug(
+                    f"Attempt {attempt + 1} failed, retrying in {delay} seconds"
+                )
 
         if last_error is None:
             raise RuntimeError("All retry attempt fail, but no exception was captured")
