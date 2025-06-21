@@ -16,8 +16,6 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
     )
 
-    # TODO: check if need to remove?
-    api_key: str = "dev-key-change-in-production"
     api_keys_str: str = Field(default="", alias="API_KEYS")
     aws_secrets_manager_key_name: str = ""
     require_auth: bool = True
@@ -37,10 +35,6 @@ class Settings(BaseSettings):
         if not self.api_keys_str:
             return []
         return [key.strip() for key in self.api_keys_str.split(",") if key.strip()]
-
-    # class Config:
-    #     env_file = ".env"
-    #     env_file_encoding = "utf-8"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
