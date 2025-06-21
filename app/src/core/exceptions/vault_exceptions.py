@@ -11,7 +11,7 @@ class BaseVaultException(BaseAPIException):
     ):
         super().__init__(
             message,
-            status_code=500,
+            status_code=status_code,
             detail=detail,
             original_error=original_error,
         )
