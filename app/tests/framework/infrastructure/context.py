@@ -2,6 +2,8 @@ import time
 import uuid
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+
+# TODO: clean up pre 3.9 typing
 from typing import Any, Dict, List
 
 

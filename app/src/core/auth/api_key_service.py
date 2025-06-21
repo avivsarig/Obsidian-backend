@@ -1,5 +1,7 @@
 import logging
 import time
+
+# TODO: clear pre 3.9 typing
 from typing import List
 
 from app.src.core.config import get_settings

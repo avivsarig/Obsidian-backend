@@ -1,5 +1,7 @@
 import secrets
 import string
+
+# TODO: clear pre 3.9 typing
 from typing import List
 
 KEY_LENGTH = 32

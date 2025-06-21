@@ -1,5 +1,7 @@
 import json
 import logging
+
+# TODO: clear pre 3.9 typing
 from typing import List
 
 import boto3
