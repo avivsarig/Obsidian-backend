@@ -5,18 +5,25 @@ from croniter import croniter
 
 from app.src.domain.date_service import get_date_service
 from app.src.domain.entities import ArchiveItem, TaskItem
-from app.src.infrastructure.vault_manager import VaultManager
+from app.src.domain.repositories import ArchiveRepository, TaskRepository
 
 logger = logging.getLogger(__name__)
 
 
 class TaskProcessor:
+    def __init__(
+        self,
+        task_repository: TaskRepository,
+        archive_repository: ArchiveRepository,
+    ):
+        self.task_repository = task_repository
+        self.archive_repository = archive_repository
+
     def process_active_task(
         self,
-        vault: VaultManager,
         task: TaskItem,
-        config,
-    ):
+        config: dict,
+    ) -> TaskItem:
         from app.src.domain.date_service import get_date_service
 
         logger.info(f"Processing active task: {task.title}")
@@ -24,12 +31,7 @@ class TaskProcessor:
 
         if task.done and task.repeat_task:
             logger.info("Task is done and repeating - resetting")
-            self.reset_repeating_task(
-                task=task,
-                vault=vault,
-                config=config,
-            )
-            return
+            return self.reset_repeating_task(task, config)
 
         if task.done and not task.completed_at:
             logger.info("Task is done - filling completion date")
@@ -41,8 +43,8 @@ class TaskProcessor:
 
         if task.done and task.completed_at:
             logger.info("Task is done - moving to completion cache")
-            vault.move_note(item=task, destination_dir=config["completed_tasks"])
-            return
+            self.task_repository.move_task(task, config["completed_tasks"])
+            return task
 
         normalized_do_date = date_service.normalize_for_field(task.do_date, "do_date")
 
@@ -55,14 +57,14 @@ class TaskProcessor:
         else:
             task.do_date = normalized_do_date
 
-        vault.write_note(task, target_dir=config["tasks"])
+        self.task_repository.save_task(task, config["tasks"])
+        return task
 
     def reset_repeating_task(
         self,
         task: TaskItem,
-        vault: VaultManager,
-        config,
-    ):
+        config: dict,
+    ) -> TaskItem:
         date_service = get_date_service()
         last_occurrence = self.get_last_occurrence(task)
         next_do_date_str = self.get_next_occurrence(task)
@@ -85,15 +87,15 @@ class TaskProcessor:
         task.done = False
         task.completed_at = None
 
-        vault.write_note(task, target_dir=config["tasks"])
+        self.task_repository.save_task(task, config["tasks"])
+        return task
 
     def process_completed_task(
         self,
-        vault: VaultManager,
         task: TaskItem,
-        config,
-        retent_for_days,
-    ):
+        config: dict,
+        retent_for_days: int,
+    ) -> TaskItem:
         logger.info(f"Processing completed task: {task.title}")
 
         # if done but no completed_at - update completed_at
@@ -105,7 +107,8 @@ class TaskProcessor:
         if task.completed_at and not task.done:
             logger.info("Task not done - reactivating")
             task.completed_at = None
-            vault.move_note(item=task, destination_dir=config["tasks"])
+            self.task_repository.move_task(task, config["tasks"])
+            return task
 
         # make sure is_project is up to date
         if (task.content == "") == task.is_project:
@@ -126,20 +129,17 @@ class TaskProcessor:
             )
             if not task.is_project:
                 logger.info("Deleting over-retented task")
-                vault.delete_note(task)
+                self.task_repository.delete_task(task)
             else:
-                self.archive_task(
-                    vault=vault,
-                    task=task,
-                    config=config,
-                )
+                self.archive_task(task, config)
+
+        return task
 
     def archive_task(
         self,
-        vault: VaultManager,
         task: TaskItem,
-        config,
-    ):
+        config: dict,
+    ) -> None:
         logger.info("Archiving task")
         callout = "> [!Example] Task properties"
         for k, v in task.frontmatter.items():
@@ -154,8 +154,8 @@ class TaskProcessor:
             tags=["Archived-task"],
         )
 
-        vault.write_note(item=archive_item, target_dir=config["archive"])
-        vault.delete_note(task)
+        self.archive_repository.archive_item(archive_item, config["archive"])
+        self.task_repository.delete_task(task)
 
     def get_last_occurrence(self, task: TaskItem):
         if not task.repeat_task:

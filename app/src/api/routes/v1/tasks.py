@@ -3,10 +3,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
+from app.src.application.task_service import TaskApplicationService
 from app.src.core.dependencies import get_task_service
 from app.src.core.exceptions.exception_schemas import ErrorResponse
 from app.src.models.api_models import ProcessingResponse, TaskListResponse, TaskResponse
-from app.src.services.task_service import TaskService
 
 router = APIRouter()
 
@@ -28,7 +28,7 @@ async def list_tasks(
         bool,
         Query(description="Include completed tasks"),
     ] = True,
-    task_service: TaskService = Depends(get_task_service),  # noqa: B008
+    task_service: TaskApplicationService = Depends(get_task_service),  # noqa: B008
 ) -> TaskListResponse:
     return task_service.list_tasks(include_completed=include_completed)
 
@@ -47,7 +47,7 @@ async def list_tasks(
 )
 async def get_task(
     task_id: str,
-    task_service: TaskService = Depends(get_task_service),  # noqa B008
+    task_service: TaskApplicationService = Depends(get_task_service),  # noqa B008
 ) -> TaskResponse:
     decoded_task_id = urllib.parse.unquote(task_id)
     return task_service.get_task_by_id(decoded_task_id)
@@ -66,7 +66,7 @@ async def get_task(
     },
 )
 async def process_active_tasks(
-    task_service: TaskService = Depends(get_task_service),  # noqa: B008
+    task_service: TaskApplicationService = Depends(get_task_service),  # noqa: B008
 ) -> ProcessingResponse:
     return task_service.process_active_tasks()
 
@@ -84,6 +84,6 @@ async def process_active_tasks(
     },
 )
 async def process_completed_tasks(
-    task_service: TaskService = Depends(get_task_service),  # noqa: B008
+    task_service: TaskApplicationService = Depends(get_task_service),  # noqa: B008
 ) -> ProcessingResponse:
     return task_service.process_completed_tasks()

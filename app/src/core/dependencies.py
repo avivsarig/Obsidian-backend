@@ -1,12 +1,17 @@
 from functools import lru_cache
 
+from app.src.application.task_service import TaskApplicationService
 from app.src.core.config import get_settings
 from app.src.domain.task_processor import TaskProcessor
 from app.src.infrastructure.git.git_manager import GitManager
 from app.src.infrastructure.locking.file_locker import FileLocker
+from app.src.infrastructure.repositories import (
+    GitRepositoryAdapter,
+    VaultArchiveRepository,
+    VaultTaskRepository,
+)
 from app.src.infrastructure.vault_config import get_config
 from app.src.infrastructure.vault_manager import VaultManager
-from app.src.services.task_service import TaskService
 
 
 @lru_cache
@@ -56,19 +61,39 @@ def get_git_manager() -> GitManager | None:
         return None
 
 
-def get_task_processor() -> TaskProcessor:
-    return TaskProcessor()
-
-
-def get_task_service() -> TaskService:
+def get_task_repository() -> VaultTaskRepository:
     vault_manager = get_vault_manager()
+    return VaultTaskRepository(vault_manager)
+
+
+def get_archive_repository() -> VaultArchiveRepository:
+    vault_manager = get_vault_manager()
+    return VaultArchiveRepository(vault_manager)
+
+
+def get_git_repository() -> GitRepositoryAdapter | None:
+    git_manager = get_git_manager()
+    return GitRepositoryAdapter(git_manager) if git_manager else None
+
+
+def get_task_processor() -> TaskProcessor:
+    task_repository = get_task_repository()
+    archive_repository = get_archive_repository()
+    return TaskProcessor(
+        task_repository=task_repository,
+        archive_repository=archive_repository,
+    )
+
+
+def get_task_service() -> TaskApplicationService:
+    task_repository = get_task_repository()
     task_processor = get_task_processor()
     config = get_vault_config()
-    git_manager = get_git_manager()
+    git_repository = get_git_repository()
 
-    return TaskService(
-        vault_manager=vault_manager,
+    return TaskApplicationService(
+        task_repository=task_repository,
         task_processor=task_processor,
         config=config,
-        git_manager=git_manager,
+        git_repository=git_repository,
     )

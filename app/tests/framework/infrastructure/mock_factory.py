@@ -2,9 +2,9 @@ from contextlib import contextmanager
 from typing import Generator
 from unittest.mock import MagicMock, patch
 
+from app.src.application.task_service import TaskApplicationService
 from app.src.infrastructure.git.git_manager import GitManager
 from app.src.infrastructure.vault_manager import VaultManager
-from app.src.services.task_service import TaskService
 
 
 class MockFactory:
@@ -14,7 +14,7 @@ class MockFactory:
         mocks = {
             "vault_manager": MagicMock(spec=VaultManager),
             "git_manager": MagicMock(spec=GitManager),
-            "task_service": MagicMock(spec=TaskService),
+            "task_service": MagicMock(spec=TaskApplicationService),
         }
 
         with (
@@ -43,7 +43,7 @@ class MockFactory:
 
     @staticmethod
     def create_mock_task_service() -> MagicMock:
-        mock = MagicMock(spec=TaskService)
+        mock = MagicMock(spec=TaskApplicationService)
         mock.list_tasks.return_value = {
             "tasks": [],
             "total": 0,

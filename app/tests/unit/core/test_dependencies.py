@@ -306,8 +306,8 @@ class TestGetTaskService:
     """Test get_task_service dependency function."""
 
     def test_returns_task_service_with_all_dependencies(self):
-        """Test successful TaskService creation with all dependencies."""
-        from app.src.services.task_service import TaskService
+        """Test successful TaskApplicationService creation with all dependencies."""
+        from app.src.application.task_service import TaskApplicationService
 
         mock_vault_manager = MagicMock()
         mock_task_processor = MagicMock()
@@ -333,15 +333,15 @@ class TestGetTaskService:
 
             result = get_task_service()
 
-            assert isinstance(result, TaskService)
+            assert isinstance(result, TaskApplicationService)
             mock_get_vault_manager.assert_called_once()
             mock_get_task_processor.assert_called_once()
             mock_get_vault_config.assert_called_once()
             mock_get_git_manager.assert_called_once()
 
     def test_returns_task_service_with_none_git_manager(self):
-        """Test TaskService creation when git_manager is None."""
-        from app.src.services.task_service import TaskService
+        """Test TaskApplicationService creation when git_manager is None."""
+        from app.src.application.task_service import TaskApplicationService
 
         mock_vault_manager = MagicMock()
         mock_task_processor = MagicMock()
@@ -366,7 +366,7 @@ class TestGetTaskService:
 
             result = get_task_service()
 
-            assert isinstance(result, TaskService)
+            assert isinstance(result, TaskApplicationService)
 
     def test_returns_new_instance_each_call(self):
         """Test that get_task_service returns new instances (not cached)."""
@@ -487,9 +487,9 @@ class TestDependencyIntegration:
             mock_get_git_manager.assert_called_once()
 
             # Verify TaskService was created
-            from app.src.services.task_service import TaskService
+            from app.src.application.task_service import TaskApplicationService
 
-            assert isinstance(result, TaskService)
+            assert isinstance(result, TaskApplicationService)
 
 
 class TestErrorHandling:
