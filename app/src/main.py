@@ -6,9 +6,9 @@ from fastapi import FastAPI
 
 from app.src.api.routes.v1 import v1_router
 from app.src.core.auth.api_key_service import APIKeyService
+from app.src.core.auth.middleware import AuthenticationMiddleware
 from app.src.core.config import get_settings
 from app.src.core.exceptions.exception_handlers import setup_exception_handlers
-from app.src.core.middleware.auth import AuthenticationMiddleware
 from app.src.core.middleware.ip_rate_limiting import IPRateLimitMiddleware
 from app.src.core.middleware.rate_limiting import PerKeyRateLimitMiddleware
 from app.src.core.middleware.request_tracking import setup_request_tracking_middleware
