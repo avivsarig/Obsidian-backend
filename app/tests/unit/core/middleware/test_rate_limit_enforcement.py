@@ -10,11 +10,6 @@ from app.src.core.middleware.rate_limiting import PerKeyRateLimitMiddleware
 
 @pytest.mark.asyncio
 async def test_rate_limiting_comprehensive():
-    """Comprehensive test for rate limiting middleware with detailed verification"""
-
-    print("\n=== Starting comprehensive rate limiting test ===")
-
-    # Setup middleware with low limits for testing
     app = MagicMock()
     requests_per_minute = 3
     window_seconds = 10
@@ -25,51 +20,29 @@ async def test_rate_limiting_comprehensive():
         cleanup_interval=5,
     )
 
-    print(f"Configured: {requests_per_minute} requests per {window_seconds} seconds")
-
-    # Mock successful response
     success_response = MagicMock()
     success_response.status_code = 200
     call_next = AsyncMock(return_value=success_response)
 
-    # Test 1: Unauthenticated requests should bypass rate limiting
-    print("\n--- Test 1: Unauthenticated requests ---")
     unauth_request = MagicMock()
     unauth_request.state.authenticated = False
 
     response = await middleware.dispatch(unauth_request, call_next)
-    assert (
-        response == success_response
-    ), "Unauthenticated request should bypass rate limiting"
-    print("✓ Unauthenticated request bypassed rate limiting")
+    assert response == success_response
 
-    # Test 2: Authenticated requests within limit should pass
-    print("\n--- Test 2: Requests within rate limit ---")
     auth_request = MagicMock()
     auth_request.state.authenticated = True
     auth_request.state.api_key = "test-key-123"
 
-    responses = []
-    for i in range(requests_per_minute):
+    for _ in range(requests_per_minute):
         response = await middleware.dispatch(auth_request, call_next)
-        responses.append(response)
-        print(f"  Request {i + 1}: Status {getattr(response, 'status_code', 'N/A')}")
-        assert response == success_response, f"Request {i + 1} should succeed"
+        assert response == success_response
 
-    print(f"✓ All {requests_per_minute} requests within limit succeeded")
-
-    # Test 3: Request exceeding limit should be blocked
-    print("\n--- Test 3: Request exceeding rate limit ---")
     blocked_response = await middleware.dispatch(auth_request, call_next)
 
-    assert isinstance(
-        blocked_response, JSONResponse
-    ), "Should return JSONResponse for rate limit"
-    assert (
-        blocked_response.status_code == 429
-    ), f"Expected 429, got {blocked_response.status_code}"
+    assert isinstance(blocked_response, JSONResponse)
+    assert blocked_response.status_code == 429
 
-    # Verify response content
     import json
 
     content = json.loads(blocked_response.body.decode())
@@ -77,64 +50,37 @@ async def test_rate_limiting_comprehensive():
     assert content["status_code"] == 429
     assert "Maximum 3 requests" in content["detail"]
 
-    print("✓ Rate limit correctly blocked excess request")
-    print(f"  Response: {content}")
-
-    # Test 4: Different API keys should have separate limits
-    print("\n--- Test 4: Separate limits per API key ---")
     different_request = MagicMock()
     different_request.state.authenticated = True
     different_request.state.api_key = "different-key-456"
 
     response = await middleware.dispatch(different_request, call_next)
-    assert response == success_response, "Different API key should have separate limit"
-    print("✓ Different API key has separate rate limit")
+    assert response == success_response
 
-    # Test 5: Verify internal state (before time manipulation)
-    print("\n--- Test 5: Internal state verification ---")
     key1_requests = middleware.requests["test-key-123"]
     key2_requests = middleware.requests["different-key-456"]
 
-    print(f"Key 'test-key-123' has {len(key1_requests)} tracked requests")
-    print(f"Key 'different-key-456' has {len(key2_requests)} tracked requests")
+    assert len(key1_requests) > 0
+    assert len(key2_requests) > 0
 
-    assert len(key1_requests) > 0, "Should have tracked requests for first key"
-    assert len(key2_requests) > 0, "Should have tracked requests for second key"
-
-    # Test 6: Window sliding behavior
-    print("\n--- Test 6: Window sliding after time passes ---")
-    print(f"Simulating {window_seconds + 1} seconds passing...")
-
-    # Simulate time passing by manually clearing old entries
     current_time = time.time()
     future_time = current_time + window_seconds + 1
 
-    # Patch time.time for this test
     original_time = time.time
     time.time = lambda: future_time
 
     try:
         response = await middleware.dispatch(auth_request, call_next)
-        assert (
-            response == success_response
-        ), "Request should succeed after window slides"
-        print("✓ Request succeeded after time window slid")
+        assert response == success_response
     finally:
         time.time = original_time
 
-    # Test 7: Cleanup mechanism
-    print("\n--- Test 7: Cleanup mechanism ---")
     initial_key_count = len(middleware.requests)
-    print(f"Initial tracked keys: {initial_key_count}")
 
-    # Force cleanup by calling it directly
     await middleware._cleanup_old_entries_async(time.time() + 1000)
 
     final_key_count = len(middleware.requests)
-    print(f"Keys after cleanup: {final_key_count}")
-    print("✓ Cleanup mechanism verified")
-
-    print("\n=== All rate limiting tests passed! ===")
+    assert final_key_count <= initial_key_count
 
 
 @pytest.mark.asyncio
@@ -175,7 +121,127 @@ async def test_concurrent_requests():
     print("✓ Concurrent request handling verified")
 
 
+@pytest.mark.asyncio
+async def test_missing_api_key():
+    """Test requests without API key bypass rate limiting"""
+    middleware = PerKeyRateLimitMiddleware(MagicMock(), requests_per_minute=1)
+    call_next = AsyncMock(return_value=MagicMock(status_code=200))
+
+    # Request without api_key attribute
+    request_no_key = MagicMock()
+    del request_no_key.state.api_key
+
+    response = await middleware.dispatch(request_no_key, call_next)
+    assert response.status_code == 200
+
+    # Request with empty api_key
+    request_empty_key = MagicMock()
+    request_empty_key.state.api_key = ""
+    request_empty_key.state.authenticated = True
+
+    response = await middleware.dispatch(request_empty_key, call_next)
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_retry_after_header():
+    """Test that 429 responses include proper Retry-After header"""
+    window_seconds = 30
+    middleware = PerKeyRateLimitMiddleware(
+        MagicMock(), requests_per_minute=1, window_seconds=window_seconds
+    )
+    call_next = AsyncMock(return_value=MagicMock(status_code=200))
+
+    request = MagicMock()
+    request.state.authenticated = True
+    request.state.api_key = "test-key"
+
+    # First request succeeds
+    await middleware.dispatch(request, call_next)
+
+    # Second request gets rate limited
+    response = await middleware.dispatch(request, call_next)
+
+    assert response.status_code == 429
+    assert "Retry-After" in response.headers
+    assert response.headers["Retry-After"] == str(window_seconds)
+
+
+@pytest.mark.asyncio
+async def test_cleanup_interval_respected():
+    """Test that cleanup only runs after cleanup_interval seconds"""
+    cleanup_interval = 100
+    middleware = PerKeyRateLimitMiddleware(
+        MagicMock(), requests_per_minute=1, cleanup_interval=cleanup_interval
+    )
+
+    # Initial cleanup time
+    initial_cleanup = middleware.last_cleanup
+
+    # Call cleanup with time just before interval
+    await middleware._cleanup_old_entries_async(initial_cleanup + cleanup_interval - 1)
+    assert middleware.last_cleanup == initial_cleanup
+
+    # Call cleanup with time after interval
+    await middleware._cleanup_old_entries_async(initial_cleanup + cleanup_interval + 1)
+    assert middleware.last_cleanup > initial_cleanup
+
+
+@pytest.mark.asyncio
+async def test_sliding_window_cleanup_during_dispatch():
+    """Test that old requests are cleaned up during normal dispatch flow"""
+    middleware = PerKeyRateLimitMiddleware(
+        MagicMock(), requests_per_minute=5, window_seconds=2
+    )
+    call_next = AsyncMock(return_value=MagicMock(status_code=200))
+
+    request = MagicMock()
+    request.state.authenticated = True
+    request.state.api_key = "test-key"
+
+    # Make initial request
+    await middleware.dispatch(request, call_next)
+
+    # Simulate time passing beyond window
+    import time
+
+    original_time = time.time
+    current_time = time.time()
+    time.time = lambda: current_time + 3  # 3 seconds > 2 second window
+
+    try:
+        # This should trigger the popleft() cleanup in dispatch
+        await middleware.dispatch(request, call_next)
+        # Should succeed since old request was cleaned up
+        assert len(middleware.requests["test-key"]) == 1
+    finally:
+        time.time = original_time
+
+
+@pytest.mark.asyncio
+async def test_custom_configuration():
+    """Test middleware with custom configuration values"""
+    custom_requests = 50
+    custom_window = 120
+    custom_cleanup = 600
+
+    middleware = PerKeyRateLimitMiddleware(
+        MagicMock(),
+        requests_per_minute=custom_requests,
+        window_seconds=custom_window,
+        cleanup_interval=custom_cleanup,
+    )
+
+    assert middleware.requests_per_minute == custom_requests
+    assert middleware.window_seconds == custom_window
+    assert middleware.cleanup_interval == custom_cleanup
+
+
 if __name__ == "__main__":
     # Run tests directly
     asyncio.run(test_rate_limiting_comprehensive())
     asyncio.run(test_concurrent_requests())
+    asyncio.run(test_missing_api_key())
+    asyncio.run(test_retry_after_header())
+    asyncio.run(test_cleanup_interval_respected())
+    asyncio.run(test_custom_configuration())

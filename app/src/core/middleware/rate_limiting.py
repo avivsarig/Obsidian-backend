@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from collections import defaultdict, deque
-from typing import Callable, Deque
+from typing import Awaitable, Callable, Deque
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -33,7 +33,7 @@ class PerKeyRateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self,
         request: Request,
-        call_next: Callable[[Request], Response],
+        call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         if not hasattr(request.state, "api_key") or not request.state.api_key:
             logger.debug("Request missing API key, skipping rate limit")

@@ -48,10 +48,13 @@ class TestRequestLoggingMiddleware:
         """Test that middleware logs both request start and completion."""
         call_next = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "app.src.core.middleware.logging.get_request_id",
-            return_value="test-request-id",
-        ), caplog.at_level(logging.INFO):
+        with (
+            patch(
+                "app.src.core.middleware.logging.get_request_id",
+                return_value="test-request-id",
+            ),
+            caplog.at_level(logging.INFO),
+        ):
             result = await middleware.dispatch(mock_request, call_next)
 
         assert result == mock_response
@@ -84,9 +87,12 @@ class TestRequestLoggingMiddleware:
             await asyncio.sleep(0.1)
             return mock_response
 
-        with patch(
-            "app.src.core.middleware.logging.get_request_id", return_value="test-id"
-        ), caplog.at_level(logging.INFO):
+        with (
+            patch(
+                "app.src.core.middleware.logging.get_request_id", return_value="test-id"
+            ),
+            caplog.at_level(logging.INFO),
+        ):
             start_time = time.time()
             await middleware.dispatch(mock_request, slow_call_next)
             end_time = time.time()
@@ -105,9 +111,12 @@ class TestRequestLoggingMiddleware:
         mock_request.client = None
         call_next = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "app.src.core.middleware.logging.get_request_id", return_value="test-id"
-        ), caplog.at_level(logging.INFO):
+        with (
+            patch(
+                "app.src.core.middleware.logging.get_request_id", return_value="test-id"
+            ),
+            caplog.at_level(logging.INFO),
+        ):
             await middleware.dispatch(mock_request, call_next)
 
         start_record = caplog.records[0]
@@ -121,9 +130,12 @@ class TestRequestLoggingMiddleware:
         mock_request.headers = {}
         call_next = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "app.src.core.middleware.logging.get_request_id", return_value="test-id"
-        ), caplog.at_level(logging.INFO):
+        with (
+            patch(
+                "app.src.core.middleware.logging.get_request_id", return_value="test-id"
+            ),
+            caplog.at_level(logging.INFO),
+        ):
             await middleware.dispatch(mock_request, call_next)
 
         start_record = caplog.records[0]
@@ -137,9 +149,12 @@ class TestRequestLoggingMiddleware:
         mock_request.query_params = QueryParams()
         call_next = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "app.src.core.middleware.logging.get_request_id", return_value="test-id"
-        ), caplog.at_level(logging.INFO):
+        with (
+            patch(
+                "app.src.core.middleware.logging.get_request_id", return_value="test-id"
+            ),
+            caplog.at_level(logging.INFO),
+        ):
             await middleware.dispatch(mock_request, call_next)
 
         start_record = caplog.records[0]
@@ -157,9 +172,13 @@ class TestRequestLoggingMiddleware:
             mock_request.method = method
             caplog.clear()
 
-            with patch(
-                "app.src.core.middleware.logging.get_request_id", return_value="test-id"
-            ), caplog.at_level(logging.INFO):
+            with (
+                patch(
+                    "app.src.core.middleware.logging.get_request_id",
+                    return_value="test-id",
+                ),
+                caplog.at_level(logging.INFO),
+            ):
                 await middleware.dispatch(mock_request, call_next)
 
             assert caplog.records[0].method == method
@@ -176,9 +195,13 @@ class TestRequestLoggingMiddleware:
             call_next = AsyncMock(return_value=mock_response)
             caplog.clear()
 
-            with patch(
-                "app.src.core.middleware.logging.get_request_id", return_value="test-id"
-            ), caplog.at_level(logging.INFO):
+            with (
+                patch(
+                    "app.src.core.middleware.logging.get_request_id",
+                    return_value="test-id",
+                ),
+                caplog.at_level(logging.INFO),
+            ):
                 await middleware.dispatch(mock_request, call_next)
 
             completion_record = caplog.records[1]
@@ -190,9 +213,12 @@ class TestRequestLoggingMiddleware:
         test_exception = ValueError("Test error")
         call_next = AsyncMock(side_effect=test_exception)
 
-        with patch(
-            "app.src.core.middleware.logging.get_request_id", return_value="test-id"
-        ), pytest.raises(ValueError, match="Test error"):
+        with (
+            patch(
+                "app.src.core.middleware.logging.get_request_id", return_value="test-id"
+            ),
+            pytest.raises(ValueError, match="Test error"),
+        ):
             await middleware.dispatch(mock_request, call_next)
 
     @pytest.mark.asyncio
