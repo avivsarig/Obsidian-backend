@@ -393,5 +393,177 @@ class TestVaultDiscoveryLogic:
                 settings._discover_vault_path()
 
 
+class TestVaultDiscoveryTraversal:
+    """Test the actual file system traversal logic in _discover_vault_path."""
+
+    def test_discover_vault_path_finds_vault_with_pyproject_toml(self):
+        """Test _discover_vault_path finds vault when pyproject.toml exists."""
+        import os
+        import tempfile
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            project_root = temp_path / "project"
+            project_root.mkdir()
+            config_dir = project_root / "app" / "src" / "core"
+            config_dir.mkdir(parents=True)
+
+            (project_root / "pyproject.toml").write_text("[tool.poetry]")
+            vault_path = temp_path / "vault"
+            vault_path.mkdir()
+
+            settings = Settings(vault_path=Path("/dummy"))
+
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch("app.src.core.config.Path") as mock_path_class,
+            ):
+                mock_path_class.return_value = config_dir
+
+                result = settings._discover_vault_path()
+                assert result == vault_path
+
+    def test_discover_vault_path_finds_vault_with_git_directory(self):
+        """Test _discover_vault_path finds vault when .git exists."""
+        import os
+        import tempfile
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            project_root = temp_path / "project"
+            project_root.mkdir()
+            config_dir = project_root / "app" / "src" / "core"
+            config_dir.mkdir(parents=True)
+
+            (project_root / ".git").mkdir()
+            vault_path = temp_path / "vault"
+            vault_path.mkdir()
+
+            settings = Settings(vault_path=Path("/dummy"))
+
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch("app.src.core.config.Path") as mock_path_class,
+            ):
+                mock_path_class.return_value = config_dir
+
+                result = settings._discover_vault_path()
+                assert result == vault_path
+
+    def test_discover_vault_path_marker_exists_but_no_vault(self):
+        """Test _discover_vault_path when marker exists but vault doesn't exist."""
+        import os
+        import tempfile
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            project_root = temp_path / "project"
+            project_root.mkdir()
+            config_dir = project_root / "app" / "src" / "core"
+            config_dir.mkdir(parents=True)
+
+            (project_root / "pyproject.toml").write_text("[tool.poetry]")
+
+            settings = Settings(vault_path=Path("/dummy"))
+
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch("app.src.core.config.Path") as mock_path_class,
+            ):
+                mock_path_class.return_value = config_dir
+
+                with pytest.raises(ValueError, match="Vault not found"):
+                    settings._discover_vault_path()
+
+    def test_discover_vault_path_traverses_multiple_levels(self):
+        """Test _discover_vault_path traverses multiple directory levels."""
+        import os
+        import tempfile
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            project_root = temp_path / "project"
+            project_root.mkdir()
+            config_dir = project_root / "app" / "src" / "core" / "deep" / "nested"
+            config_dir.mkdir(parents=True)
+
+            (project_root / "pyproject.toml").write_text("[tool.poetry]")
+            vault_path = temp_path / "vault"
+            vault_path.mkdir()
+
+            settings = Settings(vault_path=Path("/dummy"))
+
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch("app.src.core.config.Path") as mock_path_class,
+            ):
+                mock_path_class.return_value = config_dir
+
+                result = settings._discover_vault_path()
+                assert result == vault_path
+
+    def test_discover_vault_path_no_markers_traversal_exhausted(self):
+        """Test _discover_vault_path when no markers found during traversal."""
+        import os
+        import tempfile
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            config_dir = temp_path / "app" / "src" / "core"
+            config_dir.mkdir(parents=True)
+
+            settings = Settings(vault_path=Path("/dummy"))
+
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch("app.src.core.config.Path") as mock_path_class,
+            ):
+                mock_path_class.return_value = config_dir
+
+                with pytest.raises(ValueError, match="Vault not found"):
+                    settings._discover_vault_path()
+
+    def test_discover_vault_path_both_markers_exist(self):
+        """Test _discover_vault_path when both pyproject.toml and .git exist."""
+        import os
+        import tempfile
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            project_root = temp_path / "project"
+            project_root.mkdir()
+            config_dir = project_root / "app" / "src" / "core"
+            config_dir.mkdir(parents=True)
+
+            (project_root / "pyproject.toml").write_text("[tool.poetry]")
+            (project_root / ".git").mkdir()
+
+            vault_path = temp_path / "vault"
+            vault_path.mkdir()
+
+            settings = Settings(vault_path=Path("/dummy"))
+
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch("app.src.core.config.Path") as mock_path_class,
+            ):
+                mock_path_class.return_value = config_dir
+
+                result = settings._discover_vault_path()
+                assert result == vault_path
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
