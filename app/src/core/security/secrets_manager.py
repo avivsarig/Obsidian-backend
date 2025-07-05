@@ -1,9 +1,6 @@
 import json
 import logging
 
-# TODO: clear pre 3.9 typing
-from typing import List
-
 import boto3
 from botocore.exceptions import ClientError
 
@@ -13,11 +10,23 @@ logger = logging.getLogger(__name__)
 
 
 class SecretsManager:
-    def __init__(self):
-        self.settings = get_settings()
-        self.client = boto3.client("secretsmanager", region_name="eu-west-1")
+    """AWS Secrets Manager client for retrieving API keys."""
 
-    async def get_api_keys(self) -> List[str]:
+    def __init__(self, region_name: str = "eu-west-1"):
+        """Initialize SecretsManager.
+
+        Args:
+            region_name: AWS region for Secrets Manager client
+        """
+        self.settings = get_settings()
+        self.client = boto3.client("secretsmanager", region_name=region_name)
+
+    async def get_api_keys(self) -> list[str]:
+        """Retrieve API keys from AWS Secrets Manager.
+
+        Returns:
+            List of API key strings, empty list if retrieval fails
+        """
         if not self.settings.aws_secrets_manager_key_name:
             logger.warning("No AWS secrets manager key name configured")
             return []
@@ -34,7 +43,7 @@ class SecretsManager:
                 logger.error("API keys in secret is not a list")
                 return []
 
-            string_keys = [str(key) for key in api_keys if isinstance(key, str)]
+            string_keys = [str(key) for key in api_keys if key and isinstance(key, str)]
 
             logger.debug(f"Retrieved {len(string_keys)} API keys from AWS")
             return string_keys
