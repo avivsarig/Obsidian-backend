@@ -69,7 +69,7 @@ class TaskProcessor:
         last_occurrence = self.get_last_occurrence(task)
         next_do_date_str = self.get_next_occurrence(task)
 
-        next_do_date_dt = date_service.parse_datevalue_to_parseddate(next_do_date_str)
+        next_do_date_dt = date_service.parse_date_string(next_do_date_str)
 
         if task.due_date and last_occurrence:
             normalized_due_date = date_service.normalize_for_field(

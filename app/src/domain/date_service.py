@@ -4,18 +4,47 @@ from app.src.domain.value_objects import DateValue, ParsedDate
 
 
 class DateService:
-    def __init__(self):
-        self.formats = [
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y-%m-%dT%H:%M",
-            "%Y-%m-%d",
-        ]
+    """Service for parsing, normalizing, and formatting dates for task management.
 
-    def parse_datevalue_to_parseddate(
+    Provides field-specific date handling with different semantics:
+    - due_date: defaults to end of day (23:59:59)
+    - do_date: defaults to start of day (00:00:00)
+    - completed_at: uses current time when no time specified
+    """
+
+    # Supported date formats in order of preference
+    DATE_FORMATS = [
+        "%Y-%m-%dT%H:%M:%S",  # Full datetime
+        "%Y-%m-%dT%H:%M",  # DateTime without seconds
+        "%Y-%m-%d",  # Date only
+    ]
+
+    # Field-specific time defaults
+    FIELD_TIME_DEFAULTS = {
+        "due_date": time(23, 59, 59),  # End of day for deadlines
+        "do_date": time(0, 0, 0),  # Start of day for tasks
+    }
+
+    def __init__(self) -> None:
+        """Initialize the DateService with default formats and field mappings."""
+        self.formats = self.DATE_FORMATS
+
+    def parse_date_string(
         self,
         date_str: str,
     ) -> ParsedDate:
-        if not date_str or date_str == "":
+        """Parse a date string into a datetime object using supported formats.
+
+        Args:
+            date_str: Date string to parse
+
+        Returns:
+            Parsed datetime object or None if empty string
+
+        Raises:
+            ValueError: If date string format is not recognized
+        """
+        if not date_str or not date_str.strip():
             return None
 
         for fmt in self.formats:
@@ -31,6 +60,15 @@ class DateService:
         value: DateValue,
         field_name: str,
     ) -> ParsedDate:
+        """Normalize a date value for a specific field with appropriate semantics.
+
+        Args:
+            value: Date value to normalize (string, datetime, date, or None)
+            field_name: Target field name for semantic interpretation
+
+        Returns:
+            Normalized datetime object or None
+        """
         if not value:
             return None
 
@@ -39,7 +77,7 @@ class DateService:
         elif isinstance(value, date):
             return self._date_to_datetime(value, field_name)
         elif isinstance(value, str):
-            parsed = self.parse_datevalue_to_parseddate(value)
+            parsed = self.parse_date_string(value)
             return self._apply_field_semantics(
                 parsed, field_name, has_time="T" in value
             )
@@ -48,23 +86,41 @@ class DateService:
 
     @staticmethod
     def now_timestamp_str() -> str:
+        """Get current timestamp as ISO format string.
+
+        Returns:
+            Current datetime formatted as YYYY-MM-DDTHH:MM:SS
+        """
         return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
     def _get_field_time(
         self,
         field_name: str,
     ) -> time:
-        field_times = {
-            "due_date": time(23, 59, 59),  # End of day for deadlines
-            "do_date": time(0, 0, 0),  # Start of day for tasks
-        }
-        return field_times.get(field_name, time(0, 0, 0))
+        """Get default time for a specific field.
+
+        Args:
+            field_name: Name of the field
+
+        Returns:
+            Default time object for the field
+        """
+        return self.FIELD_TIME_DEFAULTS.get(field_name, time(0, 0, 0))
 
     def _date_to_datetime(
         self,
         date_obj: date,
         field_name: str,
     ) -> datetime:
+        """Convert a date object to datetime using field-specific time defaults.
+
+        Args:
+            date_obj: Date to convert
+            field_name: Field name for time semantics
+
+        Returns:
+            Datetime object with appropriate time component
+        """
         field_time = self._get_field_time(field_name)
         return datetime.combine(date_obj, field_time)
 
@@ -74,6 +130,16 @@ class DateService:
         field_name: str,
         has_time: bool,
     ) -> ParsedDate:
+        """Apply field-specific semantic rules to a datetime.
+
+        Args:
+            dt: Datetime to modify
+            field_name: Field name for semantic rules
+            has_time: Whether original input had time component
+
+        Returns:
+            Datetime with field semantics applied
+        """
         if not dt:
             return None
 
@@ -97,6 +163,15 @@ class DateService:
         )
 
     def format_for_storage(self, dt: datetime, field_name: str) -> str:
+        """Format datetime for storage based on field semantics.
+
+        Args:
+            dt: Datetime to format
+            field_name: Field name for format selection
+
+        Returns:
+            Formatted date string appropriate for storage
+        """
         if isinstance(dt, str):
             return dt
 
@@ -109,6 +184,15 @@ class DateService:
             return dt.strftime("%Y-%m-%dT%H:%M")
 
     def _is_date_only_semantics(self, dt: datetime, field_name: str) -> bool:
+        """Check if datetime represents date-only semantics for a field.
+
+        Args:
+            dt: Datetime to check
+            field_name: Field name for semantic comparison
+
+        Returns:
+            True if datetime matches field's default time
+        """
         expected_time = self._get_field_time(field_name)
 
         return (
@@ -122,12 +206,34 @@ _date_service = DateService()
 
 
 def get_date_service() -> DateService:
+    """Get the singleton DateService instance.
+
+    Returns:
+        Global DateService instance
+    """
     return _date_service
 
 
 def normalize_date_field(value: DateValue, field_name: str = "") -> ParsedDate:
+    """Convenience function to normalize a date value for a field.
+
+    Args:
+        value: Date value to normalize
+        field_name: Target field name
+
+    Returns:
+        Normalized datetime object
+    """
     return get_date_service().normalize_for_field(value, field_name)
 
 
 def parse_date_string(date_str: str) -> ParsedDate:
-    return get_date_service().parse_datevalue_to_parseddate(date_str)
+    """Convenience function to parse a date string.
+
+    Args:
+        date_str: Date string to parse
+
+    Returns:
+        Parsed datetime object
+    """
+    return get_date_service().parse_date_string(date_str)

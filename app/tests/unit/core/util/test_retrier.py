@@ -108,8 +108,9 @@ class TestRetrierFailureScenarios:
         original_error = ValueError("test error")
         operation = Mock(side_effect=original_error)
 
-        with patch("app.src.core.util.retrier.time.sleep"), pytest.raises(
-            ValueError, match="test error"
+        with (
+            patch("app.src.core.util.retrier.time.sleep"),
+            pytest.raises(ValueError, match="test error"),
         ):
             retrier.execute(operation)
 
@@ -123,8 +124,9 @@ class TestRetrierFailureScenarios:
         for exception_class in [ValueError, RuntimeError, KeyError, TypeError]:
             operation = Mock(side_effect=exception_class("test"))
 
-            with patch("app.src.core.util.retrier.time.sleep"), pytest.raises(
-                exception_class
+            with (
+                patch("app.src.core.util.retrier.time.sleep"),
+                pytest.raises(exception_class),
             ):
                 retrier.execute(operation)
 
@@ -139,8 +141,9 @@ class TestRetrierFailureScenarios:
             ]
         )
 
-        with patch("app.src.core.util.retrier.time.sleep"), pytest.raises(
-            TypeError, match="last error"
+        with (
+            patch("app.src.core.util.retrier.time.sleep"),
+            pytest.raises(TypeError, match="last error"),
         ):
             retrier.execute(operation)
 
