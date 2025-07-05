@@ -1,6 +1,6 @@
 import asyncio
 import time
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi import Request, Response
@@ -398,7 +398,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_time_boundary_conditions(self):
-        """Test behavior at time boundaries."""
+        """Test behavior at time boundaries using controlled timing."""
         app = Mock()
         middleware = IPRateLimitMiddleware(app, requests_per_minute=1, window_seconds=1)
 
@@ -409,20 +409,26 @@ class TestEdgeCases:
 
         call_next = AsyncMock(return_value=Response(content="success", status_code=200))
 
-        # Make request at current time
-        response1 = await middleware.dispatch(request, call_next)
-        assert response1.status_code == 200
+        with patch("app.src.core.middleware.ip_rate_limiting.time.time") as mock_time:
+            # Start at time 0
+            mock_time.return_value = 0.0
 
-        # Second request should be blocked
-        response2 = await middleware.dispatch(request, call_next)
-        assert response2.status_code == 429
+            # Make request at time 0
+            response1 = await middleware.dispatch(request, call_next)
+            assert response1.status_code == 200
 
-        # Wait for the window to slide, with more generous timing
-        await asyncio.sleep(1.2)  # Increased buffer for timing precision
+            # Second request at same time should be blocked
+            response2 = await middleware.dispatch(request, call_next)
+            assert response2.status_code == 429
 
-        # Request should now be allowed
-        response3 = await middleware.dispatch(request, call_next)
-        assert response3.status_code == 200
+            # Move time forward beyond the window (1.1 seconds)
+            # The condition is: current_time - requests[0] > window_seconds
+            # So 1.1 - 0.0 > 1.0 = True, request should be removed
+            mock_time.return_value = 1.1
+
+            # Request should now be allowed
+            response3 = await middleware.dispatch(request, call_next)
+            assert response3.status_code == 200
 
 
 if __name__ == "__main__":
