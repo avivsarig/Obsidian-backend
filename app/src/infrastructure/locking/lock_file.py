@@ -1,7 +1,8 @@
 import logging
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import BinaryIO, Generator
+from typing import BinaryIO
 
 from app.src.infrastructure.locking.platform_locks import PlatformLocker
 

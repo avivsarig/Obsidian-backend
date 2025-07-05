@@ -2,7 +2,8 @@ import asyncio
 import logging
 import time
 from collections import defaultdict, deque
-from typing import Awaitable, Callable, Deque
+from collections.abc import Awaitable
+from typing import Callable, Deque
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse

@@ -1,7 +1,7 @@
 import logging
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
 
 from app.src.core.exceptions.vault_exceptions import VaultConcurrencyError
 from app.src.core.util.retrier import Retrier

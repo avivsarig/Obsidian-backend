@@ -1,9 +1,10 @@
 import contextlib
 import shutil
 import tempfile
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Generator, Protocol
+from typing import Callable, Protocol
 
 from app.src.core.config import Settings
 

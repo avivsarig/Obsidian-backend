@@ -110,7 +110,7 @@ class TaskApplicationService:
         self, completed_tasks: list[TaskItem]
     ) -> ProcessingResponse:
         """Process completed tasks batch."""
-        retent_for_days = self.config.get("retent_for_days", 14)
+        retention_for_days = self.config.get("retention_for_days", 14)
         processed_count = 0
 
         for task in completed_tasks:
@@ -118,7 +118,7 @@ class TaskApplicationService:
                 self.task_processor.process_completed_task(
                     task,
                     self.config,
-                    retent_for_days,
+                    retention_for_days,
                 )
                 processed_count += 1
                 logger.info(f"Processed completed task: {task.title}")

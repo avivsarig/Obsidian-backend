@@ -1,6 +1,6 @@
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Generator
 from unittest.mock import patch
 
 
