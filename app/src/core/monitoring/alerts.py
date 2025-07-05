@@ -12,7 +12,14 @@ def send_alert_if_needed(
     request: Request,
     request_id: str | None,
 ) -> None:
-    if not hasattr(exc, "should_alert") or not exc.should_alert:
+    """Send alert for exceptions that require immediate attention.
+
+    Args:
+        exc: The exception that occurred
+        request: The FastAPI request object
+        request_id: Optional request tracking ID
+    """
+    if not getattr(exc, "should_alert", False):
         return
 
     logger.critical(
